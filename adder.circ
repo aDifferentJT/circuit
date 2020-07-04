@@ -1,0 +1,52 @@
+
+primitive
+fullAdder : Bit -> Bit -> Bit -> (Bit, Bit)
+fullAdder 0 0 0 = (0, 0)
+fullAdder 0 0 1 = (1, 0)
+fullAdder 0 1 0 = (1, 0)
+fullAdder 0 1 1 = (0, 1)
+fullAdder 1 0 0 = (1, 0)
+fullAdder 1 0 1 = (0, 1)
+fullAdder 1 1 0 = (0, 1)
+fullAdder 1 1 1 = (1, 1)
+
+
+rippleAdder : Vect n Bit -> Vect n Bit -> Bit -> (Vect n Bit, Bit)
+rippleAdder []      []      c = ([], c)
+rippleAdder (x::xs) (y::ys) c =
+  let (z, c') = fullAdder x y c in
+  let (zs, c'') = rippleAdder xs ys c' in
+  (z::zs, c'')
+
+
+data CarryType
+  = Kill
+  | Propagate
+  | Generate
+
+mergeCarries : CarryType -> CarryType -> CarryType
+mergeCarries _ Kill      = Kill
+mergeCarries c Propagate = c
+mergeCarries _ Generate  = Generate
+
+primitive
+halfAdder : Bit -> Bit -> (Bit, CarryType)
+halfAdder 0 0 = (0, Kill)
+halfAdder 0 1 = (1, Propagate)
+halfAdder 1 0 = (1, Propagate)
+halfAdder 1 1 = (0, Generate)
+
+generateCarries : Vect n Bit -> Vect n Bit -> (Vect n Bit, Vect n CarryType)
+generateCarries = (unzip .) . zipWith halfAdder
+
+primitive
+applyCarry : Bit -> CarryType -> Bit
+applyCarry _ Kill      = 0
+applyCarry c Propagate = c
+applyCarry _ Generate  = 1
+
+performCarries : (Vect n Bit, Vect n CarryType) -> Bit -> (Vect n Bit, Bit)
+performCarries xs cs c =
+  let cs' = c :: map (applyCarry c) cs in
+  (map fst . zipWith halfAdder xs . init $ cs', last cs')
+

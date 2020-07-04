@@ -1,0 +1,76 @@
+view = createwidget (-1, [
+    'type' = 'view';
+    'name' = 'graphics view';
+    'origin' = ['x' = 1; 'y' = 1;];
+    'size' = ['x' = 400; 'y' = 500;];
+]);
+
+scroll = createwidget (view, ['type' = 'scroll';]);
+
+canvas = createwidget (scroll, [
+    'type' = 'canvas';
+    'origin' = ['x' = 1; 'y' = 1;];
+    'size' = ['x' = 400; 'y' = 500;];
+    'borderwidth' = 1;
+    'window' = [0 = ['x' = 0; 'y' = 0;]; 1 = ['x' = 400; 'y' = 500;];];
+]);
+
+objarray =
+  [ 0 =
+    [ 'id' = 0;
+      'centre' = ['x' = 150; 'y' = 150;];
+      'rect' =
+        [ 0 = ['x' = 100; 'y' = 100;];
+          1 = ['x' = 200; 'y' = 200;];
+        ];
+      'name' = 'fullAdder';
+    ];
+  ];
+objnum = 1;
+
+pointadd = function (p1, p2) {
+  return ['x' = p2.x + p1.x; 'y' = p2.y + p1.y;];
+};
+pointsub = function (p1, p2) {
+  return ['x' = p2.x - p1.x; 'y' = p2.y - p1.y;];
+};
+
+drawprim = function (obj, color) {
+  #text(canvas, obj, obj.centre, 'obj.name', 'FreeSerif', 100, 'cc', ['color' = color;]);
+  box(canvas, obj, obj.rect, ['color' = color;]);
+};
+move = function (obj, p) {
+  obj.rect[0] = pointadd (obj.rect[0], p);
+  obj.rect[1] = pointadd (obj.rect[1], p);
+  obj.centre = pointadd (obj.centre, p);
+  return obj;
+};
+
+leftdown = function (data) {
+  if (data.obj ~= null) {
+    leftprim = data.obj;
+    leftpos = data.pos;
+  }
+};
+leftmove = function (data) {
+  if (leftprim) {
+    drawprim(leftprim, 0);
+    clearpick (canvas, leftprim);
+    move (leftprim, pointsub (leftpos, data.pos));
+    leftpos = data.pos;
+    drawprim (leftprim, 1);
+  }
+};
+leftup = function (data) {
+  if (leftprim) {
+    drawprim (leftprim, 0);
+    clearpick (canvas, leftprim);
+    move (leftprim, pointsub (leftpos, data.pos));
+    drawprim (leftprim, 1);
+    remove ('leftpos');
+    remove ('leftprim');
+  }
+};
+
+drawprim(objarray[0], 1);
+
