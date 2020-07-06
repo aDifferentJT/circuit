@@ -1,37 +1,54 @@
 
 import Circuit
 import C_Circuit
-import PartialIndex
+import Data.Vect
+import IndexType
 import Pretty
 
-not : Bit ~> Bit
-not = primitive {a = Bit} {b = Bit} "not" bitNot
+not : (input : Encodable) -> Bit' input -> Bit' input
+not input = primitive "not" bitNot input
 
-fullAdder' : (Bit && Bit && Bit) ~~> (Bit && Bit)
-fullAdder' (B0, B0, B0) = (B0, B0)
-fullAdder' (B0, B0, B1) = (B1, B0)
-fullAdder' (B0, B1, B0) = (B1, B0)
-fullAdder' (B0, B1, B1) = (B0, B1)
-fullAdder' (B1, B0, B0) = (B1, B0)
-fullAdder' (B1, B0, B1) = (B0, B1)
-fullAdder' (B1, B1, B0) = (B0, B1)
-fullAdder' (B1, B1, B1) = (B1, B1)
+fullAdder' : Bit -> Bit -> Bit -> (Bit, Bit)
+fullAdder' B0 B0 B0 = (B0, B0)
+fullAdder' B0 B0 B1 = (B1, B0)
+fullAdder' B0 B1 B0 = (B1, B0)
+fullAdder' B0 B1 B1 = (B0, B1)
+fullAdder' B1 B0 B0 = (B1, B0)
+fullAdder' B1 B0 B1 = (B0, B1)
+fullAdder' B1 B1 B0 = (B0, B1)
+fullAdder' B1 B1 B1 = (B1, B1)
 
-fullAdder : (Bit && Bit && Bit) ~> (Bit && Bit)
-fullAdder = primitive {a = Bit && Bit && Bit} {b = Bit && Bit} "fullAdder" fullAdder'
+fullAdder : (input : Encodable) -> (Bit' input) -> (Bit' input) -> (Bit' input) -> (Bit' input, Bit' input)
+fullAdder input = primitive "fullAdder" fullAdder' input
 
-IntBits : Nat -> Encodable
-IntBits n = NewEnc ("Int " ++ show n) $ EncVect n Bit
+data IntBits : Nat -> Encodable -> Type where
+  MkInt : Vect n (Bit' input) -> IntBits n input
 
-rippleAdder : (IntBits n && IntBits n && Bit) ~> (IntBits n && Bit)
-rippleAdder (MkNewType [], MkNewType [], c) = (MkNewType [], c)
-rippleAdder (MkNewType (x::xs), MkNewType (y::ys), c) =
-  let (z, c') = fullAdder (x, y, c) in
-  let (MkNewType zs, c'') = rippleAdder (MkNewType xs, MkNewType ys, c') in
-  (MkNewType (z::zs), c'')
+IntBitsEnc : Nat -> Encodable
+IntBitsEnc n = NewEnc ("Int " ++ show n) $ EncVect n Bit
 
-test : {n : Nat} -> PrimType (IntBits n && IntBits n && Bit) -> IO ()
-test {n} = prettySimulate {a = IntBits n && IntBits n && Bit} {b = IntBits n && Bit} rippleAdder EmptyIndex
+{n : Nat} -> EncodingValue (Bit' input) (IntBits n input) where
+  builderEncodable = IntBitsEnc n
+  constructEncodingValue (MkInt x) = NewEncoding $ constructEncodingValue x
+  deconstructEncodingValue (NewEncoding x) = MkInt $ deconstructEncodingValue x
+
+rippleAdder
+  :  (input : Encodable)
+  -> IntBits n input
+  -> IntBits n input
+  -> Bit' input
+  -> (IntBits n input, Bit' input)
+rippleAdder input (MkInt []) (MkInt []) c = (MkInt [], c)
+rippleAdder input (MkInt (x :: xs)) (MkInt (y :: ys)) c =
+  let (z, c') = fullAdder input x y c in
+      let (MkInt zs, c'') = rippleAdder input (MkInt xs) (MkInt ys) c' in
+          (MkInt (z :: zs), c'')
+
+testPure : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) -> PrimType (IntBitsEnc n && Bit)
+testPure n = simulate (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) $ rippleAdder {n}
+
+test : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) -> IO ()
+test n = prettySimulate (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n}) EmptyIndex
 
 {-
 exportList : FFI_Export FFI_C "adder.h" []
@@ -63,5 +80,6 @@ exportList = Data (PrimType Bit) "bit_t"
     -}
 
 main : IO ()
-main = test $ (MkNewType [0,0], MkNewType [0,0], 0)
+main = do
+  test 4 $ replicate 0
 

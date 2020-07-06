@@ -61,15 +61,15 @@ zipUnequalVect {n = S n} g xss =
        )
 
 
-showHashIdent : Int -> String
+showHashIdent : Bits64 -> String
 showHashIdent = pack . showHashIdent'
   where
-    nybble : Int -> Char
-    nybble = chr . ((ord 'a') +)
+    nybble : Bits64 -> Char
+    nybble = chr . ((ord 'a') +) . cast . prim__cast_Bits64Integer
 
-    showHashIdent' : Int -> List Char
+    showHashIdent' : Bits64 -> List Char
     showHashIdent' 0 = []
-    showHashIdent' n = nybble (mod n 16) :: showHashIdent' (assert_smaller n $ div n 16)
+    showHashIdent' n = nybble (prim__and_Bits64 n 0xf) :: showHashIdent' (assert_smaller n $ prim__shr_Bits64 n 4)
 
 
 export

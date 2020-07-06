@@ -7,10 +7,9 @@ import Data.List
 import Data.Nat
 import Data.Strings
 import Data.Vect
+import IndexType
 import LineDrawing
 import NatProofs
-import PartialIndex
-import IndexType
 import Utils
 import VectProofs
 
@@ -75,17 +74,19 @@ bracket (Just (FS highlight)) (n :: ns) =
 tupleToList
   :  (a : Encodable)
   -> Maybe (b : Encodable ** PartialIndex a b)
-  -> WithBitType t a
+  -> Encoding (BitType t) a
   -> (  n : Nat
      ** as : Vect n Encodable
      ** ( Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k as) b)
-        , HVect (map (WithBitType t) as)
+        , HVect (map (Encoding $ BitType t) as)
         )
      )
-tupleToList (a1 && a2) Nothing (x1, x2) =
+tupleToList (a && UnitEnc) Nothing (x && UnitEnc) = (1 ** [a] ** (Nothing, [x]))
+tupleToList (a && UnitEnc) (Just (b ** LeftIndex i)) (x && UnitEnc) = (1 ** [a] ** (Just (0 ** b ** i), [x]))
+tupleToList (a1 && a2) Nothing (x1 && x2) =
   let (n ** as ** (_, xs)) = tupleToList a2 Nothing x2 in
       (S n ** a1 :: as ** (Nothing, x1 :: xs))
-tupleToList (a1 && a2) (Just (b ** i)) (x1, x2) =
+tupleToList (a1 && a2) (Just (b ** i)) (x1 && x2) =
   case i of
        EmptyIndex => let (n ** as ** (_, xs)) = tupleToList a2 Nothing x2 in
                          (S n ** a1 :: as ** (Nothing, x1 :: xs))
@@ -97,12 +98,28 @@ tupleToList (a1 && a2) (Just (b ** i)) (x1, x2) =
 tupleToList a Nothing x = (1 ** [a] ** (Nothing, [x]))
 tupleToList a (Just (b ** i)) x = (1 ** [a] ** (Just (0 ** b ** i), [x]))
 
-makeVectIndex
-  :  Maybe (b : Encodable ** PartialIndex (EncVect n a) b)
-  -> Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k $ replicate a) b)
-makeVectIndex Nothing = Nothing
-makeVectIndex (Just (_ ** EmptyIndex)) = Nothing
-makeVectIndex (Just (b ** (VectIndex k i))) = Just (k ** b ** rewrite indexReplicate k a in i)
+extractVect
+  :  (a : Encodable)
+  -> Maybe (b : Encodable ** PartialIndex (EncVect n a) b)
+  -> Encoding (BitType t) (EncVect n a)
+  -> (  n : Nat
+     ** ( Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k $ replicate a) b)
+        , HVect (map (Encoding $ BitType t) $ replicate n a)
+        )
+     )
+extractVect a _ [] = (Z ** (Nothing, []))
+extractVect a Nothing (x :: xs) =
+  let (n ** (_, xs')) = extractVect a Nothing xs in
+      (S n ** (Nothing, x :: xs'))
+extractVect a (Just (b ** i)) (x :: xs) =
+  case i of
+       EmptyIndex => let (n ** (_, xs')) = extractVect a Nothing xs in
+                         (S n ** (Nothing, x :: xs'))
+       HeadIndex i' => let (n ** (_, xs')) = extractVect a Nothing xs in
+                           (S n ** (Just (FZ ** b ** i'), x :: xs'))
+       TailIndex i' => case extractVect a (Just (b ** i')) xs of
+                             (n ** (Nothing, xs')) => (S n ** (Nothing, x :: xs'))
+                             (n ** (Just (k ** b' ** i''), xs')) => (S n ** (Just (FS k ** b' ** i''), x :: xs'))
 
 makeNewEncIndex
   :  Maybe (b : Encodable ** PartialIndex (NewEnc ident a) b)
@@ -135,7 +152,7 @@ mutual
     :  Show t
     => (as : Vect n Encodable)
     -> Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k as) b)
-    -> HVect (map (WithBitType t) as)
+    -> HVect (map (Encoding $ BitType t) as)
     -> VectPrettys n
   vectPrettys {t} as Nothing xs = hVectToVect {xs = as} (pretty' {t} Nothing) xs
   vectPrettys {t} as (Just (k ** b ** i)) xs =
@@ -150,7 +167,7 @@ mutual
     => (n : Nat)
     -> (as : Vect n Encodable)
     -> Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k as) b)
-    -> HVect (map (WithBitType t) as)
+    -> HVect (map (Encoding $ BitType t) as)
     -> (height : Nat ** width : Nat ** Vect height (Vect width (Either LineDir Char)))
   prettyVect {t} n as i xs =
     let prettys = vectPrettys as i xs in
@@ -166,16 +183,18 @@ mutual
     :  Show t
     => {a : Encodable}
     -> Maybe (b : Encodable ** PartialIndex a b)
-    -> WithBitType t a
+    -> Encoding (BitType t) a
     -> (height : Nat ** width : Nat ** Vect height (Vect width (Either LineDir Char)))
-  pretty' @{showT} {a = Bit} i x =
+  pretty' {a = Bit} _ (BitEncoding x) =
     (1 ** second ((::[]) . map Right) $ listToVect $ unpack $ show $ x)
-  pretty' {t} {a = a1 && a2} i x =
+  pretty' _ UnitEnc = (1 ** 2 ** [[Right '(', Right ')']])
+  pretty' {a = a1 && a2} i x =
     let (n ** as ** (i', xs)) = tupleToList (a1 && a2) i x in
         assert_total $ prettyVect {t} n as i' xs
-  pretty' {t} {a = EncVect n a} i xs =
-    assert_total $ prettyVect {t} n (replicate a) (makeVectIndex i) $ rewrite mapReplicate (WithBitType t) n a in vectToHVect xs
-  pretty' {t} {a = NewEnc ident _} i (MkNewType x) =
+  pretty' {a = EncVect n a} i x =
+    let (n ** (i', xs)) = extractVect a i x in
+        assert_total $ prettyVect {t} n (replicate a) i' xs
+  pretty' {a = NewEnc ident _} i (NewEncoding x) =
     let (width1 ** ident') = listToVect $ unpack $ ident in
         let (height ** width2 ** lines) = pretty' {t} (makeNewEncIndex i) x in
             (  S height
@@ -184,39 +203,58 @@ mutual
             :: map (cPad {smaller=ySmallerThanMaxNatXY width1 width2} $ Left space) lines
             )
 
-pretty : Show t => {a : Encodable} -> Maybe (b : Encodable ** PartialIndex a b) -> WithBitType t a -> String
+pretty : Show t => {a : Encodable} -> Maybe (b : Encodable ** PartialIndex a b) -> Encoding (BitType t) a -> String
 pretty i x =
   let (height ** width ** ls) = pretty' i x in
       unlines $ toList $ map (pack . toList . map (either lineDrawingChar id)) $ ls
 
-prettyInvert : Show t => {a : Encodable} -> Maybe (b : Encodable ** PartialIndex a b) -> WithBitType t a -> String
+prettyInvert : Show t => {a : Encodable} -> Maybe (b : Encodable ** PartialIndex a b) -> Encoding (BitType t) a -> String
 prettyInvert i x =
   let (_ ** _ ** lines) = pretty' i x in
       unlines $ toList $ map (pack . toList . map (either (lineDrawingChar . flipV) id)) $ reverse $ lines
 
 mutual
   covering export
-  prettySimulate : {a : Encodable} -> {b : Encodable} -> {c : Encodable} -> (a ~> b) -> PartialIndex a c -> PrimType a -> IO ()
-  prettySimulate {a} {b} {c} f i x = do
-    putStrLn $ prettyInvert {t = BitT} {a = b} Nothing $ simulate f x
-    putStrLn $ pretty {t = BitT} {a} (Just (c ** i)) x
-    getLine >>= executeUserInput f i x
+  prettySimulate
+    :  {0 f : Encodable -> Type}
+    -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
+    -> {c : Encodable}
+    -> (input : Encodable)
+    -> {auto isInputToT : builderInput @{f' input} = input}
+    -> ((input' : Encodable) -> f input')
+    -> PartialIndex (builderInput @{f' input}) c
+    -> PrimType (builderInput @{f' input})
+    -> IO ()
+  prettySimulate input g i x = do
+    putStr $ prettyInvert {t = Bit} {a = (builderOutput @{f' input})} Nothing $ simulate input g x
+    putStr $ pretty {t = Bit} {a = (builderInput @{f' input})} (Just (c ** i)) x
+    getLine >>= executeUserInput input g i x
   
   covering
-  executeUserInput : {a : Encodable} -> {b : Encodable} -> {c : Encodable} -> (a ~> b) -> PartialIndex a c -> PrimType a -> String -> IO ()
-  executeUserInput {c = Bit} f i x " " = prettySimulate f i $ mapBitAt bitNot (indexFromPartial i) x
-  executeUserInput f i x "u" = prettySimulate f (snd $ moveUp i) x
-  executeUserInput f i x "d" = prettySimulate f (snd $ moveDown i) x
-  executeUserInput f i x "l" = prettySimulate f (snd $ moveLeft i) x
-  executeUserInput f i x "r" = prettySimulate f (snd $ moveRight i) x
-  executeUserInput f i x s =
+  executeUserInput
+    :  {0 f : Encodable -> Type}
+    -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
+    -> {c : Encodable}
+    -> (input : Encodable)
+    -> {auto isInputToT : builderInput @{f' input} = input}
+    -> ((input' : Encodable) -> f input')
+    -> PartialIndex (builderInput @{f' input}) c
+    -> PrimType (builderInput @{f' input})
+    -> String
+    -> IO ()
+  executeUserInput {c = Bit} input g i x " " = prettySimulate input g i $ mapBitAt bitNot i x
+  executeUserInput input g i x "u" = prettySimulate input g (snd $ moveUp i) x
+  executeUserInput input g i x "d" = prettySimulate input g (snd $ moveDown i) x
+  executeUserInput input g i x "l" = prettySimulate input g (snd $ moveLeft i) x
+  executeUserInput input g i x "r" = prettySimulate input g (snd $ moveRight i) x
+  executeUserInput input g i x s =
     if s == (pack $ the (List Char) [chr 27, '[', 'A'])
-       then prettySimulate f (snd $ moveUp i) x
+       then prettySimulate input g (snd $ moveUp i) x
        else if s == (pack $ the (List Char) [chr 27, '[', 'B'])
-       then prettySimulate f (snd $ moveDown i) x
+       then prettySimulate input g (snd $ moveDown i) x
        else if s == (pack $ the (List Char) [chr 27, '[', 'C'])
-       then prettySimulate f (snd $ moveRight i) x
+       then prettySimulate input g (snd $ moveRight i) x
        else if s == (pack $ the (List Char) [chr 27, '[', 'D'])
-       then prettySimulate f (snd $ moveLeft i) x
-       else prettySimulate f i x
+       then prettySimulate input g (snd $ moveLeft i) x
+       else prettySimulate input g i x
 
