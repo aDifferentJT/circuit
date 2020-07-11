@@ -3,6 +3,7 @@ module ParseIndices
 import Circuit
 import Data.Fin
 import Data.List
+import Data.Strings
 import Text.Lexer
 import Text.Parser
 import IndexType

@@ -47,13 +47,13 @@ zipVect {n = S n} f xss = f (map head xss) :: zipVect f (map tail xss)
 export
 zipUnequalVect
   :  {n : Nat}
-  -> {f : Vect m Nat -> Nat}
+  -> {0 f : Vect m Nat -> Nat}
   -> {a : Type}
   -> ((xs : Vect m (o : Nat ** Vect o a)) -> Vect (f (map DPair.fst xs)) a)
   -> (xss : Vect m (o : Nat ** Vect n (Vect o a)))
   -> Vect n (Vect (f (map DPair.fst xss)) a)
 zipUnequalVect {n = Z} g xss = []
-zipUnequalVect {n = S n} {f} g xss =
+zipUnequalVect {n = S n} g xss =
   (rewrite sym $ mapFstSecondDep (\o => Vect o a) head xss in
            g $ map (second head) xss
   ) :: (rewrite sym $ mapFstSecondDep (\o => Vect n (Vect o a)) tail xss in
@@ -65,19 +65,26 @@ showHashIdent : Bits64 -> String
 showHashIdent = pack . showHashIdent'
   where
     nybble : Bits64 -> Char
-    nybble = chr . ((ord 'a') +) . prim__truncB64_Int
+    nybble = chr . ((ord 'a') +) . cast . prim__cast_Bits64Integer
 
     showHashIdent' : Bits64 -> List Char
     showHashIdent' 0 = []
-    showHashIdent' n = nybble (prim__andB64 n 0xf) :: showHashIdent' (assert_smaller n $ prim__lshrB64 n 4)
+    showHashIdent' n = nybble (prim__and_Bits64 n 0xf) :: showHashIdent' (assert_smaller n $ prim__shr_Bits64 n 4)
 
 
 export
-decEqVectDPair : DecEq a => {n : Nat} -> {f : a -> Type} -> Vect (S n) (x : a ** f x) -> Maybe (x : a ** Vect (S n) (f x))
+decEqVectDPair : DecEq a => {n : Nat} -> {0 f : a -> Type} -> Vect (S n) (x : a ** f x) -> Maybe (x : a ** Vect (S n) (f x))
 decEqVectDPair [(x ** y)] = Just (x ** [y])
 decEqVectDPair {n = S _} (MkDPair x y :: xs) with (decEqVectDPair xs)
   decEqVectDPair (MkDPair _ _ :: _) | Nothing = Nothing
   decEqVectDPair (MkDPair x y :: _) | Just (MkDPair x' ys) with (decEq x x')
     decEqVectDPair (MkDPair x y :: _) | Just (MkDPair x ys) | Yes Refl = Just (x ** (y :: ys))
     decEqVectDPair (MkDPair _ _ :: _) | Just (MkDPair _ _)  | No _ = Nothing
+
+
+export
+thenCompare : Ordering -> Lazy Ordering -> Ordering
+thenCompare LT y = LT
+thenCompare EQ y = y
+thenCompare GT y = GT
 

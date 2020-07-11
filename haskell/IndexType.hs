@@ -1,9 +1,12 @@
 module IndexType
+  ( PartialIndex(..)
+  , IndexType(..)
+  ) where
 
-import AuxProofs
-import Data.DPair.Extra
-import Data.Hash
-import Data.SortedSet
+--import AuxProofs
+--import Data.DPair.Extra
+import Data.Hashable
+import Data.Set
 import Data.Vect
 import Debug.Trace
 import Decidable.Equality
@@ -11,19 +14,15 @@ import Encodable
 import EqOrdUtils
 import Utils
 
-%default total
+data PartialIndex :: Encodable -> Encodable -> Type where
+  EmptyIndex :: PartialIndex a a
+  LeftIndex :: PartialIndex a b -> PartialIndex (a && _) b
+  RightIndex :: PartialIndex a b -> PartialIndex (_ && a) b
+  HeadIndex :: PartialIndex a b -> PartialIndex (EncVect (S _) a) b
+  TailIndex :: PartialIndex (EncVect n a) b -> PartialIndex (EncVect (S n) a) b
+  NewEncIndex :: PartialIndex a b -> PartialIndex (NewEnc _ a) b
 
-public export
-data PartialIndex : Encodable -> Encodable -> Type where
-  EmptyIndex : PartialIndex a a
-  LeftIndex : PartialIndex a b -> PartialIndex (a && _) b
-  RightIndex : PartialIndex a b -> PartialIndex (_ && a) b
-  HeadIndex : PartialIndex a b -> PartialIndex (EncVect (S _) a) b
-  TailIndex : PartialIndex (EncVect n a) b -> PartialIndex (EncVect (S n) a) b
-  NewEncIndex : PartialIndex a b -> PartialIndex (NewEnc _ a) b
-
-export
-Eq (PartialIndex a b) where
+instance Eq (PartialIndex a b) where
   EmptyIndex       == EmptyIndex       = True
   (LeftIndex i1)   == (LeftIndex i2)   = i1 == i2
   (RightIndex i1)  == (RightIndex i2)  = i1 == i2
@@ -32,8 +31,7 @@ Eq (PartialIndex a b) where
   (NewEncIndex i1) == (NewEncIndex i2) = i1 == i2
   _ == _ = False
 
-export
-Ord (PartialIndex a b) where
+instance Ord (PartialIndex a b) where
   compare EmptyIndex EmptyIndex = EQ
   compare (LeftIndex i1)   (LeftIndex i2)   = compare i1 i2
   compare (RightIndex i1)  (RightIndex i2)  = compare i1 i2
@@ -59,7 +57,7 @@ Ord (PartialIndex a b) where
   compare (TailIndex _) (HeadIndex _) = GT
 
 export
-Show (PartialIndex a b) where
+{a :: Encodable} -> Show (PartialIndex a b) where
   show EmptyIndex = ""
   show (LeftIndex   i) = "Left " ++ show i
   show (RightIndex  i) = "Right " ++ show i
@@ -69,14 +67,14 @@ Show (PartialIndex a b) where
 
 export
 Hashable (PartialIndex a b) where
-  saltedHash64 EmptyIndex = saltedHash64 ()
-  saltedHash64 (LeftIndex i)   = saltedHash64 (0, i)
-  saltedHash64 (RightIndex i)  = saltedHash64 (1, i)
-  saltedHash64 (HeadIndex i)   = saltedHash64 (2, i)
-  saltedHash64 (TailIndex i)   = assert_total $ saltedHash64 (3, i)
-  saltedHash64 (NewEncIndex i) = saltedHash64 (4, i)
+  hash EmptyIndex = hash ()
+  hash (LeftIndex i)   = addSalt 0 $ hash i
+  hash (RightIndex i)  = addSalt 1 $ hash i
+  hash (HeadIndex i)   = addSalt 2 $ hash i
+  hash (TailIndex i)   = assert_total $ addSalt 3 $ hash i
+  hash (NewEncIndex i) = addSalt 4 $ hash i
 
-compose : PartialIndex a b -> PartialIndex b c -> PartialIndex a c
+compose :: PartialIndex a b -> PartialIndex b c -> PartialIndex a c
 compose EmptyIndex i = i
 compose (LeftIndex   i1) i2 = LeftIndex   $ compose i1 i2
 compose (RightIndex  i1) i2 = RightIndex  $ compose i1 i2
@@ -127,7 +125,7 @@ mutual
     uninhabited (TailIndex   i) = absurd $ compose i $ NewEncIndex EmptyIndex
     uninhabited (NewEncIndex i) = absurd $ compose i $ NewEncIndex EmptyIndex
 
-leftmostIndex : {a : Encodable} -> Nat -> (b : Encodable ** PartialIndex a b)
+leftmostIndex :: {a :: Encodable} -> Nat -> (b :: Encodable ** PartialIndex a b)
 leftmostIndex {a} Z = (a ** EmptyIndex)
 leftmostIndex {a = Bit} (S _) = trace "Forced Up" (Bit ** EmptyIndex)
 leftmostIndex {a = UnitEnc} (S _) = trace "Forced Up" (UnitEnc ** EmptyIndex)
@@ -136,18 +134,18 @@ leftmostIndex {a = EncVect Z a} (S _) = (EncVect Z a ** EmptyIndex)
 leftmostIndex {a = EncVect (S _) _} (S n) = second HeadIndex $ leftmostIndex n
 leftmostIndex {a = NewEnc _ b} (S n) = second NewEncIndex $ leftmostIndex $ S n
 
-rightmostIndex : {a : Encodable} -> Nat -> (b : Encodable ** PartialIndex a b)
+rightmostIndex :: {a :: Encodable} -> Nat -> (b :: Encodable ** PartialIndex a b)
 rightmostIndex {a} Z = (a ** EmptyIndex)
 rightmostIndex {a = Bit} (S _) = trace "Forced Up" (Bit ** EmptyIndex)
 rightmostIndex {a = UnitEnc} (S _) = trace "Forced Up" (UnitEnc ** EmptyIndex)
 rightmostIndex {a = _ && UnitEnc} (S n) = second LeftIndex $ rightmostIndex n
 rightmostIndex {a = _ && _} (S n) = second RightIndex $ rightmostIndex n
-rightmostIndex {a = EncVect Z a} (S _) = (EncVect Z a ** EmptyIndex)
-rightmostIndex {a = EncVect (S Z) a} (S n) = second HeadIndex $ rightmostIndex n
+rightmostIndex {a = EncVect 0 a} (S _) = (EncVect Z a ** EmptyIndex)
+rightmostIndex {a = EncVect 1 a} (S n) = second HeadIndex $ rightmostIndex n
 rightmostIndex {a = EncVect (S m) a} (S n) = second TailIndex $ rightmostIndex {a = assert_smaller (EncVect (S m) a) $ EncVect m a} $ S n
 rightmostIndex {a = NewEnc _ a} (S n) = second NewEncIndex $ rightmostIndex $ S n
 
-moveUp' : {a : Encodable} -> PartialIndex a b -> Maybe (c : Encodable ** PartialIndex a c)
+moveUp' :: {a :: Encodable} -> PartialIndex a b -> Maybe (c :: Encodable ** PartialIndex a c)
 moveUp' EmptyIndex = Nothing
 moveUp' {a = a1 && a2} (LeftIndex i) =
   maybe (Just (a1 && a2 ** EmptyIndex)) (Just . second LeftIndex) $ moveUp' i
@@ -161,7 +159,7 @@ moveUp' {a = a1 && a2} (RightIndex i) =
   maybe (Just (a1 && a2 ** EmptyIndex)) (Just . second RightIndex) $ moveUp' i
 moveUp' {a = EncVect (S n) a} (HeadIndex i) =
   maybe (Just (EncVect (S n) a ** EmptyIndex)) (Just . second HeadIndex) $ moveUp' i
-moveUp' {a = EncVect (S Z) a} (TailIndex i) =
+moveUp' {a = EncVect 1 a} (TailIndex i) =
   maybe (Just (EncVect 1 a ** EmptyIndex)) (Just . second TailIndex) $ moveUp' i
 moveUp' {a = EncVect (S (S n)) a} (TailIndex i) =
   case moveUp' i of
@@ -177,19 +175,19 @@ moveUp' {a = NewEnc ident a} (NewEncIndex i) =
                             else Just (c ** NewEncIndex i')
 
 export
-moveUp : {a : Encodable} -> {b : Encodable} -> PartialIndex a b -> (c : Encodable ** PartialIndex a c)
-moveUp {b} i = fromMaybe (b ** i) $ moveUp' i
+moveUp :: {a :: Encodable} -> {b :: Encodable} -> PartialIndex a b -> (c :: Encodable ** PartialIndex a c)
+moveUp i = fromMaybe (b ** i) $ moveUp' i
 
 export
-moveDown : {b : Encodable} -> PartialIndex a b -> (c : Encodable ** PartialIndex a c)
+moveDown :: {b :: Encodable} -> PartialIndex a b -> (c :: Encodable ** PartialIndex a c)
 moveDown i = second (compose i) $ leftmostIndex 1
 
-moveLeft' : {a : Encodable} -> PartialIndex a b -> Either Nat (c : Encodable ** PartialIndex a c)
+moveLeft' :: {a :: Encodable} -> PartialIndex a b -> Either Nat (c :: Encodable ** PartialIndex a c)
 moveLeft' EmptyIndex = Left Z
 moveLeft' {a = _ && a2} (LeftIndex i) =
     either (map (second RightIndex) . onFail a2) (Right . second LeftIndex) $ moveLeft' i
   where
-    onFail : (d : Encodable) -> Nat -> Either Nat (c : Encodable ** PartialIndex d c)
+    onFail :: (d :: Encodable) -> Nat -> Either Nat (c :: Encodable ** PartialIndex d c)
     onFail UnitEnc = Left
     onFail _       = Left . S
 moveLeft' (RightIndex (LeftIndex i)) =
@@ -208,21 +206,21 @@ moveLeft' (NewEncIndex i) =
   either Left (Right . second NewEncIndex) $ moveLeft' i
 
 export
-moveLeft : {a : Encodable} -> {b : Encodable} -> PartialIndex a b -> (c : Encodable ** PartialIndex a c)
-moveLeft {b} i = either (\_ => (b ** i)) id $ moveLeft' i
+moveLeft :: {a :: Encodable} -> {b :: Encodable} -> PartialIndex a b -> (c :: Encodable ** PartialIndex a c)
+moveLeft i = either (\_ => (b ** i)) id $ moveLeft' i
 
-moveRight' : {a : Encodable} -> PartialIndex a b -> Either Nat (c : Encodable ** PartialIndex a c)
+moveRight' :: {a :: Encodable} -> PartialIndex a b -> Either Nat (c :: Encodable ** PartialIndex a c)
 moveRight' EmptyIndex = Left Z
 moveRight' {a = _ && a2} (LeftIndex i) =
     either (map (second RightIndex) . onFail a2) (Right . second LeftIndex) $ moveRight' i
   where
-    onFail : (d : Encodable) -> Nat -> Either Nat (c : Encodable ** PartialIndex d c)
+    onFail :: (d :: Encodable) -> Nat -> Either Nat (c :: Encodable ** PartialIndex d c)
     onFail UnitEnc  = Left
     onFail (_ && _) = Right . leftmostIndex . S
     onFail _        = Right . leftmostIndex
 moveRight' (RightIndex i) =
   either (Left . S) (Right . second RightIndex) $ moveRight' i
-moveRight' {a = EncVect (S Z) _} (HeadIndex i) =
+moveRight' {a = EncVect 1 _} (HeadIndex i) =
   either (Left . S) (Right . second HeadIndex) $ moveRight' i
 moveRight' {a = EncVect (S (S _)) _} (HeadIndex i) =
   either (Right . second TailIndex . leftmostIndex . S) (Right . second HeadIndex) $ moveRight' i
@@ -232,11 +230,11 @@ moveRight' (NewEncIndex i) =
   either Left (Right . second NewEncIndex) $ moveRight' i
 
 export
-moveRight : {a : Encodable} -> {b : Encodable} -> PartialIndex a b -> (c : Encodable ** PartialIndex a c)
-moveRight {b} i = either (\_ => (b ** i)) id $ moveRight' i
+moveRight :: {a :: Encodable} -> {b :: Encodable} -> PartialIndex a b -> (c :: Encodable ** PartialIndex a c)
+moveRight i = either (\_ => (b ** i)) id $ moveRight' i
 
 export
-collatePair : PartialIndex a b -> PartialIndex a c -> Maybe (PartialIndex a (b && c))
+collatePair :: PartialIndex a b -> PartialIndex a c -> Maybe (PartialIndex a (b && c))
 collatePair EmptyIndex _ = Nothing
 collatePair _ EmptyIndex = Nothing
 collatePair (LeftIndex i1) (LeftIndex i2) = LeftIndex <$> collatePair i1 i2
@@ -251,7 +249,7 @@ collatePair (TailIndex _) (HeadIndex _) = Nothing
 collatePair (NewEncIndex i1) (NewEncIndex i2) = NewEncIndex <$> collatePair i1 i2
 
 export
-collateVect : PartialIndex a b -> PartialIndex a (EncVect n b) -> Maybe (PartialIndex a (EncVect (S n) b))
+collateVect :: PartialIndex a b -> PartialIndex a (EncVect n b) -> Maybe (PartialIndex a (EncVect (S n) b))
 collateVect EmptyIndex _ = Nothing
 collateVect _ EmptyIndex = Nothing
 collateVect (LeftIndex i1) (LeftIndex i2) = LeftIndex <$> collateVect i1 i2
@@ -266,18 +264,18 @@ collateVect (TailIndex i1) (TailIndex i2) = TailIndex <$> collateVect i1 i2
 collateVect (NewEncIndex i1) (NewEncIndex i2) = NewEncIndex <$> collateVect i1 i2
 
 export
-collateNewEnc : {ident : String} -> {a : Encodable} -> PartialIndex a b -> Maybe (PartialIndex a (NewEnc ident b))
+collateNewEnc :: {ident :: String} -> {a :: Encodable} -> PartialIndex a b -> Maybe (PartialIndex a (NewEnc ident b))
 collateNewEnc EmptyIndex = Nothing
 collateNewEnc (LeftIndex  i) = LeftIndex  <$> collateNewEnc i
 collateNewEnc (RightIndex i) = RightIndex <$> collateNewEnc i
 collateNewEnc (HeadIndex  i) = HeadIndex  <$> collateNewEnc i
 collateNewEnc (TailIndex  i) = TailIndex  <$> collateNewEnc i
-collateNewEnc {ident} {a = NewEnc ident' _} (NewEncIndex EmptyIndex) with (decEq ident ident')
-  collateNewEnc (NewEncIndex EmptyIndex) | Yes Refl = Just EmptyIndex
+collateNewEnc {a = NewEnc ident' _} (NewEncIndex EmptyIndex) with (decEq ident ident')
+  collateNewEnc {a = NewEnc ident _} (NewEncIndex EmptyIndex) | Yes Refl = Just EmptyIndex
   collateNewEnc (NewEncIndex EmptyIndex) | No _ = Nothing
 collateNewEnc (NewEncIndex i) = NewEncIndex <$> collateNewEnc i
 
 public export
-IndexType : Encodable -> Type
+IndexType :: Encodable -> Type
 IndexType a = PartialIndex a Bit
 

@@ -26,12 +26,12 @@ NetList input = SortedMap (String, Bits64)
 
 mutual
   netListFromPrim : {input : Encodable} -> {a : Encodable} -> {b : Encodable} -> Primitive input a b -> State (NetList input) (NetListOutput input b)
-  netListFromPrim {input} {b} prim@(MkPrimitive name h _ x) = do
-    let output = Encoding.map (hash . the (ProducingBit input Bit) . BitProducedFrom prim) IndexTypes
+  netListFromPrim prim@(MkPrimitive name h _ x) = do
+    let output = map {f = \t => Encoding (BitType t) b} (hash . the (ProducingBit input Bit) . BitProducedFrom prim) IndexTypes
     when (isNothing $ SortedMap.lookup (name, h) !get) $
       modify $
-      insert (name, h) (a ** b ** (!(assert_total $ netList' x), output))
-    pure $ map Right output
+      insert (name, h) (a ** b ** (!(netList' x), output))
+    pure $ map {f = \t => Encoding (BitType t) b} Right output
   
   netList' : {input : Encodable} -> {a : Encodable} -> Producing input a -> State (NetList input) (NetListOutput input a)
   netList' {a = Bit} (BitEncoding x) =

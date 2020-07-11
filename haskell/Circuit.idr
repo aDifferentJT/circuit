@@ -40,23 +40,23 @@ mutual
 
 
 export
-Show (Primitive input a b) where
+{0 input : Encodable} -> Show (Primitive input a b) where
   show (MkPrimitive name h _ _) = "Primitive " ++ name ++ " " ++ show h
 
 export
-Show (ProducingBit input a) where
+{input : Encodable} -> Show (ProducingBit input a) where
   show (InputBit i) = "Input " -- ++ show i
   show (BitProducedFrom p i) = "Produced From " ++ show p -- ++ " at " ++ show i
 
 
 export
-Hashable (Primitive input a b) where
-  saltedHash64 (MkPrimitive _ h _ _) = saltedHash64 h
+{0 input : Encodable} -> Hashable (Primitive input a b) where
+  hash (MkPrimitive _ h _ _) = h
 
 export
-Hashable (ProducingBit input a) where
-  saltedHash64 (InputBit i) = saltedHash64 i
-  saltedHash64 (BitProducedFrom p i) = saltedHash64 (p, i)
+{input : Encodable} -> Hashable (ProducingBit input a) where
+  hash (InputBit i) = hash i
+  hash (BitProducedFrom p i) = addSalt (hash p) (hash i)
 
 
 public export
@@ -76,21 +76,21 @@ primitive
   -> t1
   -> (input : Encodable)
   -> {auto t2' : EncodingBuilder (ProducingBit input Bit) t2}
-  -> {auto sameInput : (builderInput (MkProxy (Bit, t1))) = (builderInput (MkProxy (ProducingBit input Bit, t2)))}
-  -> {auto sameOutput : (builderOutput (MkProxy (Bit, t1))) = (builderOutput (MkProxy (ProducingBit input Bit, t2)))}
+  -> {auto sameInput : (builderInput @{t1'}) = (builderInput @{t2'})}
+  -> {auto sameOutput : (builderOutput @{t1'}) = (builderOutput @{t2'})}
   -> t2
-primitive {t1} {t2} name g input {sameInput} {sameOutput} =
-    deconstructEncodingFunction {t = ProducingBit input Bit} $
-    \x => map (BitProducedFrom (primitive' x)) $
+primitive name g input =
+    deconstructEncodingFunction $
+    \x => map {f = \t => Encoding (BitType t) (builderOutput @{t2'})} (BitProducedFrom (primitive' x)) $
          rewrite sameOutput in IndexTypes
   where
-    primitive' : Producing input (builderInput (MkProxy (ProducingBit input Bit, t2))) -> Primitive input (builderInput (MkProxy (Bit, t1))) (builderOutput (MkProxy (Bit, t1)))
-    primitive' x = MkPrimitive name (hash (name, hash @{HashableEncoding {t = ProducingBit input Bit}} x)) (constructEncodingFunction {t = Bit} g) $ rewrite__impl (Producing input) sameInput x
+    primitive' : Producing input (builderInput @{t2'}) -> Primitive input (builderInput @{t1'}) (builderOutput @{t1'})
+    primitive' x = MkPrimitive name (addSalt (hash name) (hash @{HashableEncoding} x)) (constructEncodingFunction g) $ rewrite__impl (Producing input) sameInput x
 
 
 export
 inputProducing : {input : Encodable} -> Producing input input
-inputProducing = map InputBit IndexTypes
+inputProducing = map {f = \t => Encoding (BitType t) input} InputBit IndexTypes
 
 
 mutual
@@ -102,7 +102,7 @@ mutual
     -> PrimType input
     -> Primitive input a b
     -> State (SortedMap Bits64 (c : Encodable ** PrimType c)) (PrimType b)
-  runPrimitive' {b} inputs prim@(MkPrimitive _ _ f' x) = do
+  runPrimitive' inputs prim@(MkPrimitive _ _ f' x) = do
     y <- f' <$> simulate' inputs x
     modify (insert (hash prim) (b ** y))
     pure y
@@ -115,7 +115,7 @@ mutual
     -> PrimType input
     -> Primitive input a b
     -> State (SortedMap Bits64 (c : Encodable ** PrimType c)) (PrimType b)
-  runPrimitive {b} inputs prim =
+  runPrimitive inputs prim =
     case Data.SortedMap.lookup (hash prim) !get of
          Just (b' ** xs) => case decEq b b' of
                                  Yes Refl => pure xs
@@ -135,25 +135,19 @@ mutual
          InputBit i => pure $ index i inputs
          BitProducedFrom prim i => index i <$> runPrimitive inputs prim
   simulate' _      UnitEnc = pure UnitEnc
-  simulate' {inputsEqual = Refl} inputs (x && y) = pure (!(simulate' inputs x) && !(simulate' inputs y))
+  simulate' inputs (x && y) = pure (!(simulate' inputs x) && !(simulate' inputs y))
   simulate' _      [] = pure []
-  simulate' {inputsEqual = Refl} inputs (x :: xs) = pure (!(simulate' inputs x) :: !(simulate' inputs xs))
-  simulate' {inputsEqual = Refl} inputs (NewEncoding x) = NewEncoding <$> simulate' inputs x
+  simulate' inputs (x :: xs) = pure (!(simulate' inputs x) :: !(simulate' inputs xs))
+  simulate' inputs (NewEncoding x) = NewEncoding <$> simulate' inputs x
 
 covering
 export
 simulate
-  :  {f : Encodable -> Type}
+  :  {0 f : Encodable -> Type}
   -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
   -> (input : Encodable)
-  -> {auto isInputToT : builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)) = input}
+  -> {auto isInputToT : builderInput @{f' input} = input}
   -> ((input' : Encodable) -> f input')
-  -> builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)) ~~> builderOutput @{f' input} (MkProxy (ProducingBit input Bit, f input))
-simulate {f} {f'} input {isInputToT} g inputs =
-  Basics.fst $
-  flip runState empty $
-  simulate' inputs $
-  rewrite isInputToT in
-          constructEncodingFunction @{f' input} (g input) $
-          rewrite isInputToT in inputProducing
+  -> builderInput @{f' input} ~~> builderOutput @{f' input}
+simulate input g inputs = fst $ flip runState empty $ simulate' inputs $ constructEncodingFunction @{f' input} (g input) $ rewrite isInputToT in inputProducing
 

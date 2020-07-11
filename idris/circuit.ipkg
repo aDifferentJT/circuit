@@ -1,0 +1,6 @@
+package circuit
+
+modules = Circuit
+
+depends = contrib
+

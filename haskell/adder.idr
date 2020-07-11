@@ -4,7 +4,6 @@ import C_Circuit
 import Data.Vect
 import IndexType
 import Pretty
-import Utils
 
 not : (input : Encodable) -> Bit' input -> Bit' input
 not input = primitive "not" bitNot input
@@ -28,16 +27,10 @@ data IntBits : Nat -> Encodable -> Type where
 IntBitsEnc : Nat -> Encodable
 IntBitsEnc n = NewEnc ("Int " ++ show n) $ EncVect n Bit
 
-EncodingValue (Bit' input) (IntBits n input) where
+{n : Nat} -> EncodingValue (Bit' input) (IntBits n input) where
   builderEncodable = IntBitsEnc n
-  constructEncodingValue (MkInt x) = NewEncoding $ constructEncodingValue {t = Bit' input} x
-  deconstructEncodingValue (NewEncoding x) = MkInt $ deconstructEncodingValue {t = Bit' input} x
-
-EncodingBuilder (Bit' input) (IntBits n input) where
-  builderInput _ = UnitEnc
-  builderOutput {input} {n} _ = builderEncodable {t = Bit' input} {a = IntBits n input}
-  constructEncodingFunction {input} x UnitEnc = constructEncodingValue {t = Bit' input} x
-  deconstructEncodingFunction {input} f = deconstructEncodingValue {t = Bit' input} $ f UnitEnc
+  constructEncodingValue (MkInt x) = NewEncoding $ constructEncodingValue x
+  deconstructEncodingValue (NewEncoding x) = MkInt $ deconstructEncodingValue x
 
 rippleAdder
   :  (input : Encodable)
@@ -45,17 +38,17 @@ rippleAdder
   -> IntBits n input
   -> Bit' input
   -> (IntBits n input, Bit' input)
-rippleAdder {n = Z} input (MkInt []) (MkInt []) c = (MkInt [], c)
-rippleAdder {n = S _} input (MkInt (x :: xs)) (MkInt (y :: ys)) c =
+rippleAdder input (MkInt []) (MkInt []) c = (MkInt [], c)
+rippleAdder input (MkInt (x :: xs)) (MkInt (y :: ys)) c =
   let (z, c') = fullAdder input x y c in
       let (MkInt zs, c'') = rippleAdder input (MkInt xs) (MkInt ys) c' in
           (MkInt (z :: zs), c'')
 
 testPure : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) -> PrimType (IntBitsEnc n && Bit)
-testPure n = simulate {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)} {f' = \input' => autoDer} (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) $ rippleAdder {n}
+testPure n = simulate (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) $ rippleAdder {n}
 
 test : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) -> IO ()
-test n = prettySimulate {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)} {f' = \input' => autoDer} (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n}) EmptyIndex
+test n = prettySimulate (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n}) EmptyIndex
 
 {-
 exportList : FFI_Export FFI_C "adder.h" []

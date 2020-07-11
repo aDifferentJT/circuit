@@ -37,7 +37,7 @@ composeN : {as : Vect n Type} -> (b -> c) -> manyArgs as b -> manyArgs as c
 composeN {as = []}      f g = f g
 composeN {as = a :: as} f g = composeN f . g
 
-mergeArgs : {as : Vect m Type} -> {bs : Vect n Type} -> {x : c} -> {y : c} -> {z : c} -> (cToType : c -> Type) -> (cToType x -> cToType y -> cToType z) -> manyArgs as (cToType x) -> manyArgs bs (cToType y) -> manyArgs (as ++ bs) (cToType z)
+mergeArgs : {as : Vect m Type} -> {bs : Vect n Type} -> {0 x : c} -> {0 y : c} -> {0 z : c} -> (0 cToType : c -> Type) -> (cToType x -> cToType y -> cToType z) -> manyArgs as (cToType x) -> manyArgs bs (cToType y) -> manyArgs (as ++ bs) (cToType z)
 mergeArgs {as = []}     _ f g h = composeN (f g) h
 mergeArgs {as = _ :: _} cToType f g h = \x => mergeArgs cToType f (g x) h
 
@@ -68,25 +68,37 @@ toCPoly Bit (BitEncoding b) = constN $ the Int $ case b of
                                                       B0 => 0
                                                       B1 => 1
 toCPoly UnitEnc UnitEnc = constN $ the Int 0
-toCPoly {extra} (a && b) (x && y) = f
+toCPoly (a && b) (x && y) = f
   where
     f : manyArgs (replicate (countIndices (a && b) + extra) Int) Int
     f 0 =
-      let smaller = xSmallerThanMaxNatXY (countIndices a) (countIndices b) in
-      let padding = maxNat (countIndices a) (countIndices b) `minus` countIndices a in
+      let
+        smaller : LTE (countIndices a) (maxNat (countIndices a) (countIndices b))
+        smaller = xSmallerThanMaxNatXY (countIndices a) (countIndices b)
+      in
+      let
+        padding : Nat
+        padding = maxNat (countIndices a) (countIndices b) `minus` countIndices a
+      in
       rewrite sym $ plusMinusCancel (maxNat (countIndices a) (countIndices b)) (countIndices a) {smaller} in
               rewrite sym $ plusAssociative (countIndices a) padding extra in
                       toCPoly {extra=padding + extra} a x
     f 1 =
-      let smaller = ySmallerThanMaxNatXY (countIndices a) (countIndices b) in
-      let padding = maxNat (countIndices a) (countIndices b) `minus` countIndices b in
+      let
+        smaller : LTE (countIndices b) (maxNat (countIndices a) (countIndices b))
+        smaller = ySmallerThanMaxNatXY (countIndices a) (countIndices b)
+      in
+      let
+        padding : Nat
+        padding = maxNat (countIndices a) (countIndices b) `minus` countIndices b
+      in
       rewrite sym $ plusMinusCancel (maxNat (countIndices a) (countIndices b)) (countIndices b) {smaller} in
               rewrite sym $ plusAssociative (countIndices b) padding extra in
                       toCPoly {extra=padding + extra} b y
     f _ = constN (the Int (-1))
-toCPoly {extra} (EncVect n a) xs =
+toCPoly (EncVect n a) xs =
   \i =>
        maybe (constN (the Int (-1))) (toCPoly {extra} a . flip indexVect xs) $
        integerToFin (cast i) n
-toCPoly {extra} (NewEnc _ a) (NewEncoding x) = toCPoly {extra} a x
+toCPoly (NewEnc _ a) (NewEncoding x) = toCPoly {extra} a x
 

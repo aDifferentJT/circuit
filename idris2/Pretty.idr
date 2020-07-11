@@ -22,7 +22,7 @@ half (S Z) =
   (Z ** S Z ** Refl)
 half (S (S n)) =
   let (m1 ** m2 ** pf) = half n in
-      (S m1 ** S m2 ** rewrite sym $ plusSuccRightSucc m1 m2 in cong S . cong S $ pf)
+      (S m1 ** S m2 ** rewrite sym $ plusSuccRightSucc m1 m2 in cong S $ cong S $ pf)
 
 cPad : {m : Nat} -> {n : Nat} -> {auto smaller : LTE m n} -> a -> Vect m a -> Vect n a
 cPad x xs = 

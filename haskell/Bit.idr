@@ -27,8 +27,8 @@ fromInteger _ {prf} = fromInteger' prf
 
 export
 Hashable Bit where
-  saltedHash64 B0 = saltedHash64 (the Int 0)
-  saltedHash64 B1 = saltedHash64 (the Int 1)
+  hash B0 = hash (the Int 0)
+  hash B1 = hash (the Int 1)
 
 export
 bitNot : Bit -> Bit

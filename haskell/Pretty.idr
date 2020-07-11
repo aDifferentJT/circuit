@@ -5,6 +5,7 @@ import Data.DPair.Extra
 import Data.HVect
 import Data.List
 import Data.Nat
+import Data.Strings
 import Data.Vect
 import IndexType
 import LineDrawing
@@ -21,10 +22,10 @@ half (S Z) =
   (Z ** S Z ** Refl)
 half (S (S n)) =
   let (m1 ** m2 ** pf) = half n in
-      (S m1 ** S m2 ** rewrite sym $ plusSuccRightSucc m1 m2 in cong {f = S} $ cong {f = S} $ pf)
+      (S m1 ** S m2 ** rewrite sym $ plusSuccRightSucc m1 m2 in cong S . cong S $ pf)
 
 cPad : {m : Nat} -> {n : Nat} -> {auto smaller : LTE m n} -> a -> Vect m a -> Vect n a
-cPad {m} {n} {smaller} x xs = 
+cPad x xs = 
   let (lPad ** rPad ** sumHalves) = half (n `minus` m) in
       rewrite sym (plusMinusCancel n m {smaller}) in
               rewrite sym $ sumHalves in
@@ -187,13 +188,13 @@ mutual
   pretty' {a = Bit} _ (BitEncoding x) =
     (1 ** second ((::[]) . map Right) $ listToVect $ unpack $ show $ x)
   pretty' _ UnitEnc = (1 ** 2 ** [[Right '(', Right ')']])
-  pretty' {t} {a = a1 && a2} i x =
+  pretty' {a = a1 && a2} i x =
     let (n ** as ** (i', xs)) = tupleToList (a1 && a2) i x in
         assert_total $ prettyVect {t} n as i' xs
-  pretty' {t} {a = EncVect n a} i x =
+  pretty' {a = EncVect n a} i x =
     let (n ** (i', xs)) = extractVect a i x in
         assert_total $ prettyVect {t} n (replicate a) i' xs
-  pretty' {t} {a = NewEnc ident _} i (NewEncoding x) =
+  pretty' {a = NewEnc ident _} i (NewEncoding x) =
     let (width1 ** ident') = listToVect $ unpack $ ident in
         let (height ** width2 ** lines) = pretty' {t} (makeNewEncIndex i) x in
             (  S height
@@ -215,45 +216,45 @@ prettyInvert i x =
 mutual
   covering export
   prettySimulate
-    :  {f : Encodable -> Type}
+    :  {0 f : Encodable -> Type}
     -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
     -> {c : Encodable}
     -> (input : Encodable)
-    -> {auto isInputToT : builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)) = input}
+    -> {auto isInputToT : builderInput @{f' input} = input}
     -> ((input' : Encodable) -> f input')
-    -> PartialIndex (builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input))) c
-    -> PrimType (builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)))
+    -> PartialIndex (builderInput @{f' input}) c
+    -> PrimType (builderInput @{f' input})
     -> IO ()
-  prettySimulate input {f} {f'} {c} g i x = do
-    putStr $ prettyInvert {t = Bit} {a = (builderOutput @{f' input} (MkProxy (ProducingBit input Bit, f input)))} Nothing $ simulate input {f'} g x
-    putStr $ pretty {t = Bit} {a = (builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)))} (Just (c ** i)) x
-    getLine >>= executeUserInput input {f'} g i x
+  prettySimulate input g i x = do
+    putStr $ prettyInvert {t = Bit} {a = (builderOutput @{f' input})} Nothing $ simulate input g x
+    putStr $ pretty {t = Bit} {a = (builderInput @{f' input})} (Just (c ** i)) x
+    getLine >>= executeUserInput input g i x
   
   covering
   executeUserInput
-    :  {f : Encodable -> Type}
+    :  {0 f : Encodable -> Type}
     -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
     -> {c : Encodable}
     -> (input : Encodable)
-    -> {auto isInputToT : builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)) = input}
+    -> {auto isInputToT : builderInput @{f' input} = input}
     -> ((input' : Encodable) -> f input')
-    -> PartialIndex (builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input))) c
-    -> PrimType (builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)))
+    -> PartialIndex (builderInput @{f' input}) c
+    -> PrimType (builderInput @{f' input})
     -> String
     -> IO ()
-  executeUserInput {f'} {c = Bit} input g i x " " = prettySimulate {f'} input g i $ mapBitAt bitNot i x
-  executeUserInput {f'} input g i x "u" = prettySimulate {f'} input g (snd $ moveUp i) x
-  executeUserInput {f'} input g i x "d" = prettySimulate {f'} input g (snd $ moveDown i) x
-  executeUserInput {f'} input g i x "l" = prettySimulate {f'} input g (snd $ moveLeft i) x
-  executeUserInput {f'} input g i x "r" = prettySimulate {f'} input g (snd $ moveRight i) x
-  executeUserInput {f'} input g i x s =
+  executeUserInput {c = Bit} input g i x " " = prettySimulate input g i $ mapBitAt bitNot i x
+  executeUserInput input g i x "u" = prettySimulate input g (snd $ moveUp i) x
+  executeUserInput input g i x "d" = prettySimulate input g (snd $ moveDown i) x
+  executeUserInput input g i x "l" = prettySimulate input g (snd $ moveLeft i) x
+  executeUserInput input g i x "r" = prettySimulate input g (snd $ moveRight i) x
+  executeUserInput input g i x s =
     if s == (pack $ the (List Char) [chr 27, '[', 'A'])
-       then prettySimulate {f'} input g (snd $ moveUp i) x
+       then prettySimulate input g (snd $ moveUp i) x
        else if s == (pack $ the (List Char) [chr 27, '[', 'B'])
-       then prettySimulate {f'} input g (snd $ moveDown i) x
+       then prettySimulate input g (snd $ moveDown i) x
        else if s == (pack $ the (List Char) [chr 27, '[', 'C'])
-       then prettySimulate {f'} input g (snd $ moveRight i) x
+       then prettySimulate input g (snd $ moveRight i) x
        else if s == (pack $ the (List Char) [chr 27, '[', 'D'])
-       then prettySimulate {f'} input g (snd $ moveLeft i) x
-       else prettySimulate {f'} input g i x
+       then prettySimulate input g (snd $ moveLeft i) x
+       else prettySimulate input g i x
 

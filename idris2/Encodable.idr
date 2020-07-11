@@ -10,7 +10,7 @@ infixr 9 &&
 public export
 data Encodable : Type where
   Bit     : Encodable
-  UnitEnc    : Encodable
+  UnitEnc : Encodable
   (&&)    : Encodable -> Encodable -> Encodable
   EncVect : Nat -> Encodable -> Encodable
   NewEnc  : String -> Encodable -> Encodable

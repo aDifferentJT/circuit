@@ -85,8 +85,12 @@ collateTermini (x :: xs) =
        (x, y) => x :: y
 collateTermini (NewEncoding x) =
   case collateTermini x of
-       BitEncoding (InputTerminus i) => maybe (NewEncoding $ BitEncoding $ InputTerminus i) (BitEncoding . InputTerminus) $ collateNewEnc i
-       BitEncoding (PrimTerminus name h b i) => maybe (NewEncoding $ BitEncoding $ PrimTerminus name h b i) (BitEncoding . PrimTerminus name h b) $ collateNewEnc i
+       BitEncoding (InputTerminus i) => case collateNewEnc i of
+                                             Nothing => NewEncoding $ BitEncoding $ InputTerminus i
+                                             Just i' => BitEncoding $ InputTerminus i'
+       BitEncoding (PrimTerminus name h b i) => case collateNewEnc i of
+                                                     Nothing => NewEncoding $ BitEncoding $ PrimTerminus name h b i
+                                                     Just i' => BitEncoding $ PrimTerminus name h b i'
        x' => NewEncoding x'
 
 mutual
@@ -140,5 +144,5 @@ mutual
         !(wires' x)
 
 wires : {a : Encodable} -> {b : Encodable} -> (a ~> b) -> SortedSet (Wire a b)
-wires f = snd $ snd $ flip runState (empty, empty) $ wires'' {input = a} {a = b} OutputTerminus $ collate $ f a inputProducing
+wires f = Builtin.snd $ Builtin.snd $ flip runState (empty, empty) $ wires'' {input = a} {a = b} OutputTerminus $ collate $ f a inputProducing
 
