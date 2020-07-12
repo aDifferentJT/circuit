@@ -1,9 +1,8 @@
 
 import Circuit
-import C_Circuit
 import Data.Vect
+import GUI
 import IndexType
-import Pretty
 
 not : (input : Encodable) -> Bit' input -> Bit' input
 not input = primitive "not" bitNot input
@@ -47,39 +46,10 @@ rippleAdder input (MkInt (x :: xs)) (MkInt (y :: ys)) c =
 testPure : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) -> PrimType (IntBitsEnc n && Bit)
 testPure n = simulate (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) $ rippleAdder {n}
 
-test : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) -> IO ()
-test n = prettySimulate (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n}) EmptyIndex
-
-{-
-exportList : FFI_Export FFI_C "adder.h" []
-exportList = Data (PrimType Bit) "bit_t"
-  $ Fun fromCBit "fromCBit"
-  $ Fun toCBit "toCBit"
-  $ Data (PrimType (Bit && Bit)) "bit2_t"
-  $ Fun fromCBit2 "fromCBit2"
-  $ Fun toCBit2 "toCBit2"
-  $ Data (PrimType (Bit && Bit && Bit)) "bit3_t"
-  $ Fun fromCBit3 "fromCBit3"
-  $ Fun toCBit3 "toCBit3"
-  $ Fun bitNot "not"
-  $ Fun fullAdder' "fullAdder"
-  $ End
-  where
-    fromCBit : FromCType Bit
-    fromCBit = fromCPoly Bit
-    toCBit : ToCType Bit
-    toCBit = toCPoly Bit
-    fromCBit2 : FromCType (Bit && Bit)
-    fromCBit2 = fromCPoly (Bit && Bit)
-    toCBit2 : ToCType (Bit && Bit)
-    toCBit2 = toCPoly (Bit && Bit)
-    fromCBit3 : FromCType (Bit && Bit && Bit)
-    fromCBit3 = fromCPoly (Bit && Bit && Bit)
-    toCBit3 : ToCType (Bit && Bit && Bit)
-    toCBit3 = toCPoly (Bit && Bit && Bit)
-    -}
+test : (n : Nat) -> IO ()
+test n = guiSimulate (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n})
 
 main : IO ()
 main = do
-  test 4 $ replicate 0
+  test 3
 

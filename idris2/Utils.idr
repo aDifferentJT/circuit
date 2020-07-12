@@ -29,7 +29,12 @@ public export
 second : (b -> b') -> (a, b) -> (a, b')
 second f (x, y) = (x, f y)
 
-infixl 3 ***
+infixr 3 &&&
+public export
+(&&&) : (a -> b) -> (a -> b') -> a -> (b, b')
+(&&&) f g (x, y) = (f x, g y)
+
+infixr 3 ***
 public export
 (***) : (a -> b) -> (a' -> b') -> (a, a') -> (b, b')
 (***) f g (x, y) = (f x, g y)

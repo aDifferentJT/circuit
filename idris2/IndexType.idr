@@ -18,7 +18,7 @@ data PartialIndex : Encodable -> Encodable -> Type where
   EmptyIndex : PartialIndex a a
   LeftIndex : PartialIndex a b -> PartialIndex (a && _) b
   RightIndex : PartialIndex a b -> PartialIndex (_ && a) b
-  HeadIndex : PartialIndex a b -> PartialIndex (EncVect (S _) a) b
+  HeadIndex : PartialIndex a b -> PartialIndex (EncVect (S n) a) b
   TailIndex : PartialIndex (EncVect n a) b -> PartialIndex (EncVect (S n) a) b
   NewEncIndex : PartialIndex a b -> PartialIndex (NewEnc _ a) b
 

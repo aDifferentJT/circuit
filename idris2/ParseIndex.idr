@@ -1,4 +1,4 @@
-module ParseIndices
+module ParseIndex
 
 import Circuit
 import Data.Fin
@@ -24,39 +24,55 @@ lexTokens s with (lex tokenMap s)
      lexTokens _ | (_, _, column, _) | (errorChar :: _) =
        Left $ "Unexpected character " ++ show errorChar ++ " in column " ++ show (column + 1)
 
+nat : Grammar Nat True Nat
+nat = terminal "Nat" Just
+
 fin : {n : Nat} -> Grammar Nat True (Fin n)
-fin {n} = terminal "Fin" (\m => natToFin m n)
+fin = terminal "Fin" (\m => natToFin m n)
 
 encConsumes : Encodable -> Bool
 encConsumes Bit = False
+encConsumes UnitEnc = False
 encConsumes (_ && _) = True
 encConsumes (EncVect _ _) = True
 encConsumes (NewEnc _ a) = encConsumes a
 
-grammar : (a : Encodable) -> Grammar Nat (encConsumes a) (IndexType a)
-grammar Bit = pure ()
-grammar (a && b) =
-  (<|>) {c1=True} {c2 = True}
-    (seq {c2 = encConsumes a}
-      (terminal "B0" $ \n => if n == 0 then Nothing else Just ())
-      (\() => Left <$> grammar a)
-    )
-    (seq {c2 = encConsumes b}
-      (terminal "B1" $ \n => if n == 1 then Nothing else Just ())
-      (\() => Right <$> grammar b)
-    )
-grammar (EncVect n a) =
-  fin >>= \i => (\is => (i, is)) <$> grammar a
-grammar (NewEnc _ a) = grammar a
+andFalse : (c : Bool) -> c && Delay False = False
+andFalse True = Refl
+andFalse False = Refl
 
-parseEnc : (a : Encodable) -> List Nat -> Either String (IndexType a)
-parseEnc a xs =
+eraseConsume : {c : _} -> Grammar tok c a -> Grammar tok False a
+eraseConsume x = rewrite sym $ andFalse c in x <|> the (Grammar tok False a) (fail "")
+
+grammar : (a : Encodable) -> Grammar Nat (encConsumes a) (IndexType a)
+grammar Bit = pure EmptyIndex
+grammar UnitEnc = fail "Cannot index into a UnitEnc"
+grammar (a && b) =
+  let
+    f : (c : Encodable) -> Nat -> Grammar Nat False (IndexType c)
+    f (c && _) Z = LeftIndex <$> eraseConsume (grammar c)
+    f (_ && c) (S i) = RightIndex <$> f c i
+    f _ _ = fail "Index too large for tuple"
+  in
+  nat >>= f (a && b)
+grammar (EncVect n a) =
+  let
+    f : Fin n' -> Grammar Nat (encConsumes a) (IndexType (EncVect n' a))
+    f FZ = HeadIndex <$> grammar a
+    f (FS i) = TailIndex <$> f i
+  in
+  fin >>= f
+grammar (NewEnc _ a) = NewEncIndex <$> grammar a
+
+export
+parseIndex' : (a : Encodable) -> List Nat -> Either String (IndexType a)
+parseIndex' a xs =
   case parse (grammar a) xs of
        Left (Error e ts) => Left $ "Error: " ++ e ++ " with remaining tokens " ++ show ts
        Right (is, [])    => Right is
        Right (_, ts)     => Left $ "Unexpected element " ++ show ts
 
 export
-parseIndices : (a : Encodable) -> String -> Either String (IndexType a)
-parseIndices a s = lexTokens s >>= parseEnc a
+parseIndex : (a : Encodable) -> String -> Either String (IndexType a)
+parseIndex a s = lexTokens s >>= parseIndex' a
 
