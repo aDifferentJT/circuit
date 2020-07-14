@@ -1,12 +1,12 @@
 #include "createEncoding.hpp"
 #include <stdio.h>
 
-wxSizer* createEncoding(Encoding* encoding, wxWindow* parent) {
+wxSizer* createEncoding(Encoding* encoding, wxWindow* parent, bool boxed) {
   switch (encoding->type) {
     case EncodingType::Bit: {
       wxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
       if (encoding->editable) {
-        wxButton* button = new wxButton(parent, -1, encoding->bit ? "1" : "0");
+        wxButton* button = new wxButton(parent, wxID_ANY, encoding->bit ? "1" : "0");
         button->Bind
           ( wxEVT_BUTTON
           , [encoding] (wxCommandEvent& event) {
@@ -15,7 +15,7 @@ wxSizer* createEncoding(Encoding* encoding, wxWindow* parent) {
           );
         sizer->Add(button, wxSizerFlags());
       } else {
-        sizer->Add(new wxStaticText(parent, -1, encoding->bit ? "1" : "0"), wxSizerFlags());
+        sizer->Add(new wxStaticText(parent, wxID_ANY, encoding->bit ? "1" : "0"), wxSizerFlags());
       }
       return sizer;
     }
@@ -23,15 +23,15 @@ wxSizer* createEncoding(Encoding* encoding, wxWindow* parent) {
       return new wxStaticBoxSizer(wxHORIZONTAL, parent);
     }
     case EncodingType::List: {
-      wxSizer* sizer = new wxStaticBoxSizer(wxHORIZONTAL, parent);
+      wxSizer* sizer = boxed ? new wxStaticBoxSizer(wxHORIZONTAL, parent) : new wxBoxSizer(wxHORIZONTAL);
       for (int i = 0; i < encoding->numChildren; i++) {
-        sizer->Add(createEncoding(encoding->childAt(i), parent), wxSizerFlags());
+        sizer->Add(createEncoding(encoding->childAt(i), parent, true), wxSizerFlags().Bottom().Border());
       }
       return sizer;
     }
     case EncodingType::NewType: {
       wxSizer* sizer = new wxStaticBoxSizer(wxHORIZONTAL, parent, encoding->ident);
-      sizer->Add(createEncoding(encoding->childAt(0), parent), wxSizerFlags());
+      sizer->Add(createEncoding(encoding->childAt(0), parent, false), wxSizerFlags());
       return sizer;
     }
   }

@@ -4,80 +4,89 @@
 // For compilers that support precompilation, includes "wx/wx.h".
 #include <wx/wxprec.h>
 #ifndef WX_PRECOMP
-    #include <wx/wx.h>
+#include <wx/wx.h>
 #endif
+#include <wx/aboutdlg.h>
+
+#include <string>
 
 #include "createEncoding.hpp"
 
+std::string name;
 Encoding* input = nullptr;
 Encoding* output = nullptr;
 
-class MyFrame : public wxFrame {
-public:
-    MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size);
+class Panel : public wxScrolledWindow {
+  public:
+    wxSizer* sizer;
 
-    wxSizer* topSizer;
-private:
-    void OnExit(wxCommandEvent& event);
-    void OnAbout(wxCommandEvent& event);
+    Panel(wxWindow* parent, wxWindowID id) : wxScrolledWindow(parent, id) {
+      sizer = new wxBoxSizer(wxVERTICAL);
+      sizer->Add(createEncoding(output, this), wxSizerFlags().Centre().Border());
+      sizer->Add(createEncoding(input, this), wxSizerFlags().Centre().Border());
+      SetSizerAndFit(sizer);
+      sizer->FitInside(this);
+      SetScrollRate(5, 5);
+      SetMinSize(wxSize(100, 100));
+    }
+};
+
+class Frame : public wxFrame {
+  public:
+    Panel* panel = new Panel(this, wxID_ANY);
+    Frame(const wxString& title);
+  private:
+    void OnExit(wxCommandEvent& event) { Close(true); }
+    void OnAbout(wxCommandEvent& event) {
+      wxAboutDialogInfo info;
+      info.AddDeveloper("Jonathan Tanner");
+      info.SetLicence("None yet");
+      info.SetName("Circuit");
+      info.SetVersion("0.1.0");
+      info.SetWebSite("https://github.com/nixCodeX/circuit");
+      wxAboutBox(info);
+    }
     wxDECLARE_EVENT_TABLE();
 };
 
-class MyApp : public wxApp {
-public:
-    virtual bool OnInit();
+class App : public wxApp {
+  public:
+    Frame* frame;
 
-    MyFrame* frame;
+    virtual bool OnInit() {
+      frame = new Frame(name);
+      frame->Show(true);
+      return true;
+    }
 };
 
-wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
-    EVT_MENU(wxID_EXIT,  MyFrame::OnExit)
-    EVT_MENU(wxID_ABOUT, MyFrame::OnAbout)
+wxBEGIN_EVENT_TABLE(Frame, wxFrame)
+    EVT_MENU(wxID_EXIT,  Frame::OnExit)
+    EVT_MENU(wxID_ABOUT, Frame::OnAbout)
 wxEND_EVENT_TABLE()
 
-wxIMPLEMENT_APP_NO_MAIN(MyApp);
+wxIMPLEMENT_APP_NO_MAIN(App);
 
-bool MyApp::OnInit() {
-    frame = new MyFrame("", wxPoint(50, 50), wxSize(450, 340));
-    frame->Show( true );
-    return true;
-}
-
-MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
-  : wxFrame(NULL, wxID_ANY, title, pos, size)
+Frame::Frame(const wxString& title)
+  : wxFrame(nullptr, wxID_ANY, title)
   {
-    wxMenu *menuFile = new wxMenu;
-    menuFile->Append(wxID_EXIT);
+  wxMenu *menuFile = new wxMenu; menuFile->Append(wxID_EXIT);
+  wxMenu *menuHelp = new wxMenu; menuHelp->Append(wxID_ABOUT);
 
-    wxMenu *menuHelp = new wxMenu;
-    menuHelp->Append(wxID_ABOUT);
+  wxMenuBar *menuBar = new wxMenuBar;
+  menuBar->Append(menuFile, "&File");
+  menuBar->Append(menuHelp, "&Help");
+  SetMenuBar(menuBar);
 
-    wxMenuBar *menuBar = new wxMenuBar;
-    menuBar->Append(menuFile, "&File");
-    menuBar->Append(menuHelp, "&Help");
-    SetMenuBar(menuBar);
+  CreateStatusBar();
 
-    CreateStatusBar();
-    SetStatusText("Welcome to wxWidgets!");
-
-    topSizer = new wxBoxSizer( wxVERTICAL );
-    topSizer->Add(createEncoding(output, this), wxSizerFlags().Center());
-    topSizer->Add(createEncoding(input, this), wxSizerFlags().Center());
-    SetSizerAndFit(topSizer);
+  wxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+  sizer->Add(panel, wxSizerFlags().Proportion(1).Expand());
+  SetSizerAndFit(sizer);
 }
 
-void MyFrame::OnExit(wxCommandEvent& event) {
-    Close(true);
-}
-
-void MyFrame::OnAbout(wxCommandEvent& event) {
-    wxMessageBox
-      ( "This is a wxWidgets' Hello world sample"
-      , "About Hello World", wxOK | wxICON_INFORMATION
-      );
-}
-
-void gui(Encoding* _input, Encoding* _output) {
+void gui(const char* _name, Encoding* _input, Encoding* _output) {
+  name = _name;
   delete input;
   input = _input;
   delete output;
@@ -85,8 +94,8 @@ void gui(Encoding* _input, Encoding* _output) {
 
   static bool isInitialised = false;
   if (isInitialised) {
-    updateEncoding(wxGetApp().frame->topSizer->GetItem(static_cast<size_t>(0))->GetSizer(), output);
-    updateEncoding(wxGetApp().frame->topSizer->GetItem(static_cast<size_t>(1))->GetSizer(), input);
+    updateEncoding(wxGetApp().frame->panel->sizer->GetItem(static_cast<size_t>(0))->GetSizer(), output);
+    updateEncoding(wxGetApp().frame->panel->sizer->GetItem(static_cast<size_t>(1))->GetSizer(), input);
   } else {
     isInitialised = true;
     int argc = 0;

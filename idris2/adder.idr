@@ -47,9 +47,9 @@ testPure : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc
 testPure n = simulate (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) $ rippleAdder {n}
 
 test : (n : Nat) -> IO ()
-test n = guiSimulate (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n})
+test n = guiSimulate "Ripple Adder" (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n})
 
 main : IO ()
 main = do
-  test 3
+  test 4
 

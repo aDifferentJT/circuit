@@ -8,7 +8,7 @@
 
 #include "encoding.hpp"
 
-wxSizer* createEncoding(Encoding* encoding, wxWindow* parent);
+wxSizer* createEncoding(Encoding* encoding, wxWindow* parent, bool boxed = true);
 void updateEncoding(wxSizer* sizer, Encoding* encoding);
 
 #endif

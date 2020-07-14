@@ -55,7 +55,7 @@ testPure : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc
 testPure n = simulate {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)} {f' = \input' => autoDer} (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) $ rippleAdder {n}
 
 test : (n : Nat) -> IO ()
-test n = guiSimulate {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)} {f' = \input' => autoDer} (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n})
+test n = guiSimulate "Ripple Adder" {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)} {f' = \input' => autoDer} (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n})
 
 {-
 exportList : FFI_Export FFI_C "adder.h" []
