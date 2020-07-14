@@ -1,3 +1,5 @@
+#include "gui.h"
+
 // wxWidgets "Hello world" Program
 // For compilers that support precompilation, includes "wx/wx.h".
 #include <wx/wxprec.h>
@@ -5,32 +7,30 @@
     #include <wx/wx.h>
 #endif
 
-#include "encoding.hpp"
+#include "createEncoding.hpp"
 
-Encoding* input;
-Encoding* output;
-
-class MyApp : public wxApp {
-public:
-    virtual bool OnInit();
-};
+Encoding* input = nullptr;
+Encoding* output = nullptr;
 
 class MyFrame : public wxFrame {
 public:
     MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size);
+
+    wxSizer* topSizer;
 private:
-    void OnHello(wxCommandEvent& event);
     void OnExit(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
     wxDECLARE_EVENT_TABLE();
 };
 
-enum {
-    ID_Hello = 1
+class MyApp : public wxApp {
+public:
+    virtual bool OnInit();
+
+    MyFrame* frame;
 };
 
 wxBEGIN_EVENT_TABLE(MyFrame, wxFrame)
-    EVT_MENU(ID_Hello,   MyFrame::OnHello)
     EVT_MENU(wxID_EXIT,  MyFrame::OnExit)
     EVT_MENU(wxID_ABOUT, MyFrame::OnAbout)
 wxEND_EVENT_TABLE()
@@ -38,7 +38,7 @@ wxEND_EVENT_TABLE()
 wxIMPLEMENT_APP_NO_MAIN(MyApp);
 
 bool MyApp::OnInit() {
-    MyFrame *frame = new MyFrame( "Hello World", wxPoint(50, 50), wxSize(450, 340) );
+    frame = new MyFrame("", wxPoint(50, 50), wxSize(450, 340));
     frame->Show( true );
     return true;
 }
@@ -47,12 +47,6 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
   : wxFrame(NULL, wxID_ANY, title, pos, size)
   {
     wxMenu *menuFile = new wxMenu;
-    menuFile->Append
-      ( ID_Hello
-      , "&Hello...\tCtrl-H"
-      , "Help string shown in status bar for this menu item"
-      );
-    menuFile->AppendSeparator();
     menuFile->Append(wxID_EXIT);
 
     wxMenu *menuHelp = new wxMenu;
@@ -66,10 +60,10 @@ MyFrame::MyFrame(const wxString& title, const wxPoint& pos, const wxSize& size)
     CreateStatusBar();
     SetStatusText("Welcome to wxWidgets!");
 
-    wxBoxSizer *topsizer = new wxBoxSizer( wxVERTICAL );
-    topsizer->Add(createEncoding(output, this), wxSizerFlags().Center());
-    topsizer->Add(createEncoding(input, this), wxSizerFlags().Center());
-    SetSizerAndFit(topsizer);
+    topSizer = new wxBoxSizer( wxVERTICAL );
+    topSizer->Add(createEncoding(output, this), wxSizerFlags().Center());
+    topSizer->Add(createEncoding(input, this), wxSizerFlags().Center());
+    SetSizerAndFit(topSizer);
 }
 
 void MyFrame::OnExit(wxCommandEvent& event) {
@@ -83,27 +77,21 @@ void MyFrame::OnAbout(wxCommandEvent& event) {
       );
 }
 
-void MyFrame::OnHello(wxCommandEvent& event) {
-    wxLogMessage("Hello world from wxWidgets!");
-}
-
-extern "C"
 void gui(Encoding* _input, Encoding* _output) {
+  delete input;
   input = _input;
+  delete output;
   output = _output;
 
-  int argc = 0;
-  char* argv[0]{};
-  wxEntry(argc, argv);
-}
-
-extern "C"
-void update(const char* input_bits, const char* output_bits) {
-  delete input->bits;
-  input->bits = dup(input->numDescendants, input_bits);
-  updateEncoding(input);
-  delete output->bits;
-  output->bits = dup(output->numDescendants, output_bits);
-  updateEncoding(output);
+  static bool isInitialised = false;
+  if (isInitialised) {
+    updateEncoding(wxGetApp().frame->topSizer->GetItem(static_cast<size_t>(0))->GetSizer(), output);
+    updateEncoding(wxGetApp().frame->topSizer->GetItem(static_cast<size_t>(1))->GetSizer(), input);
+  } else {
+    isInitialised = true;
+    int argc = 0;
+    char* argv[0]{};
+    wxEntry(argc, argv);
+  }
 }
 

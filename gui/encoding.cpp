@@ -1,52 +1,22 @@
-#include "encoding.hpp"
+#include "createEncoding.hpp"
 #include <stdio.h>
 
-Encoding* mkEncoding
-  ( int numDescendants
-  , const EncodingType* types
-  , const char* numChildren
-  , int lenIdents
-  , const char* idents
-  , const char* indexToIdent
-  , char* bits
-  , const char* children
-  , int editable
-  , void (*flipBitAt)(const char*)
-  ) {
-  Encoding* encoding = new Encoding
-    { numDescendants
-    , dup(numDescendants, types)
-    , dup(numDescendants, numChildren)
-    , dup(lenIdents, idents)
-    , dup(numDescendants, indexToIdent)
-    , dup(numDescendants, bits)
-    , dup(numDescendants, children)
-    , editable
-    , flipBitAt
-    , new wxControl*[numDescendants]
-    };
-  for (int i = 0; i < numDescendants; i++) {
-    encoding->bitWidgets[i] = nullptr;
-  }
-  return encoding;
-}
-
-wxSizer* createEncoding(Encoding* encoding, wxWindow* parent, int i, std::string index) {
-  switch (encoding->types[i]) {
+wxSizer* createEncoding(Encoding* encoding, wxWindow* parent) {
+  switch (encoding->type) {
     case EncodingType::Bit: {
       wxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
       if (encoding->editable) {
-        encoding->bitWidgets[i] = new wxButton(parent, -1, encoding->bits[i] ? "1" : "0");
-        encoding->bitWidgets[i]->Bind
+        wxButton* button = new wxButton(parent, -1, encoding->bit ? "1" : "0");
+        button->Bind
           ( wxEVT_BUTTON
-          , [encoding, index] (wxCommandEvent& event) {
-              encoding->flipBitAt(index.c_str());
+          , [encoding] (wxCommandEvent& event) {
+              encoding->flipBit();
             }
           );
+        sizer->Add(button, wxSizerFlags());
       } else {
-        encoding->bitWidgets[i] = new wxStaticText(parent, -1, encoding->bits[i] ? "1" : "0");
+        sizer->Add(new wxStaticText(parent, -1, encoding->bit ? "1" : "0"), wxSizerFlags());
       }
-      sizer->Add(encoding->bitWidgets[i], wxSizerFlags());
       return sizer;
     }
     case EncodingType::Unit: {
@@ -54,26 +24,36 @@ wxSizer* createEncoding(Encoding* encoding, wxWindow* parent, int i, std::string
     }
     case EncodingType::List: {
       wxSizer* sizer = new wxStaticBoxSizer(wxHORIZONTAL, parent);
-      for (int j = 0; j < encoding->numChildren[i]; j++) {
-        char* j_string = new char[2];
-        j_string[0] = static_cast<char>(j) + 1;
-        j_string[1] = '\0';
-        sizer->Add(createEncoding(encoding, parent, encoding->children[i] + j, index + j_string), wxSizerFlags());
+      for (int i = 0; i < encoding->numChildren; i++) {
+        sizer->Add(createEncoding(encoding->childAt(i), parent), wxSizerFlags());
       }
       return sizer;
     }
     case EncodingType::NewType: {
-      wxSizer* sizer = new wxStaticBoxSizer(wxHORIZONTAL, parent, encoding->idents + encoding->indexToIdent[i]);
-      sizer->Add(createEncoding(encoding, parent, encoding->children[i], index), wxSizerFlags());
+      wxSizer* sizer = new wxStaticBoxSizer(wxHORIZONTAL, parent, encoding->ident);
+      sizer->Add(createEncoding(encoding->childAt(0), parent), wxSizerFlags());
       return sizer;
     }
   }
 }
 
-void updateEncoding(Encoding* encoding) {
-  for (int i = 0; i < encoding->numDescendants; i++) {
-    if (encoding->bitWidgets[i]) {
-      encoding->bitWidgets[i]->SetLabel(encoding->bits[i] ? "1" : "0");
+void updateEncoding(wxSizer* sizer, Encoding* encoding) {
+  switch (encoding->type) {
+    case EncodingType::Bit: {
+      if (encoding->editable) {
+        dynamic_cast<wxButton*>(sizer->GetItem(static_cast<size_t>(0))->GetWindow())->SetLabel(encoding->bit ? "1" : "0");
+      } else {
+        dynamic_cast<wxStaticText*>(sizer->GetItem(static_cast<size_t>(0))->GetWindow())->SetLabel(encoding->bit ? "1" : "0");
+      }
+      break;
+    }
+    case EncodingType::Unit: break;
+    case EncodingType::List:
+    case EncodingType::NewType: {
+      for (int i = 0; i < encoding->numChildren; i++) {
+        updateEncoding(sizer->GetItem(i)->GetSizer(), encoding->childAt(i));
+      }
+      break;
     }
   }
 }

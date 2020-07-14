@@ -2,8 +2,8 @@
 import Circuit
 import C_Circuit
 import Data.Vect
+import GUI
 import IndexType
-import Pretty
 import Utils
 
 not : (input : Encodable) -> Bit' input -> Bit' input
@@ -54,8 +54,8 @@ rippleAdder {n = S _} input (MkInt (x :: xs)) (MkInt (y :: ys)) c =
 testPure : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) -> PrimType (IntBitsEnc n && Bit)
 testPure n = simulate {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)} {f' = \input' => autoDer} (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) $ rippleAdder {n}
 
-test : (n : Nat) -> PrimType (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) -> IO ()
-test n = prettySimulate {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)} {f' = \input' => autoDer} (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n}) EmptyIndex
+test : (n : Nat) -> IO ()
+test n = guiSimulate {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)} {f' = \input' => autoDer} (IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc) (rippleAdder {n})
 
 {-
 exportList : FFI_Export FFI_C "adder.h" []
@@ -88,5 +88,5 @@ exportList = Data (PrimType Bit) "bit_t"
 
 main : IO ()
 main = do
-  test 4 $ replicate 0
+  test 4
 

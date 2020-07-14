@@ -12,12 +12,12 @@ import Utils
 
 %default total
 
+%include C "idris_c_encoding.h"
+%link C "idris_c_encoding.so"
+
 public export
 C_Encoding : Type
-C_Encoding = AnyPtr
-
-%foreign "C:mkEncoding, idris2_c_encoding"
-mkC_Encoding : Int -> Int -> String -> Int -> (Int -> C_Encoding) -> Int -> PrimIO () -> C_Encoding
+C_Encoding = Ptr
 
 encodableType : Encodable -> Int
 encodableType Bit = 0
@@ -64,20 +64,29 @@ childAt (_ :: xs) flip i = childAt xs ((. TailIndex) <$> flip) (i - 1)
 childAt {a = NewEnc _ a} (NewEncoding x) flip 0 = (a ** (x, (. NewEncIndex) <$> flip))
 childAt _ _ _ = (UnitEnc ** (UnitEnc, Nothing))
 
-export
-packEncoding : {a : Encodable} -> Encoding (BitType Bit) a -> Maybe (IndexType a -> IO ()) -> C_Encoding
-packEncoding x flip =
-  mkC_Encoding
-    (encodableType a)
-    (countChildren a)
-    (encodableIdent a)
-    (encodingBit x)
-    (\i => let (_ ** (y, flip')) = childAt x flip i in
-               packEncoding (assert_smaller x y) flip'
-    )
-    (maybe 0 (\_ => 1) flip)
-    (toPrim $ case a of
-                  Bit => maybe (putStrLn "Cannot edit non-editable") ($ EmptyIndex) flip
-                  _ => putStrLn "Cannot flip non-bit"
-    )
+C_Context : Type
+C_Context = FFI_C.Raw (a : Encodable ** (Encoding (BitType Bit) a, Maybe (IndexType a -> IO ())))
+
+mutual
+  childAt' : C_Context -> Int -> C_Encoding
+  childAt' (MkRaw (a ** (x, flip))) i = let (_ ** (y, flip')) = childAt x flip i in
+                              packEncoding (assert_smaller x y) flip'
+  flip' : C_Context -> ()
+  flip' (MkRaw (_ ** (_, Nothing))) = unsafePerformIO $ putStrLn "Cannot edit non-editable"
+  flip' (MkRaw (Bit ** (_, Just flip))) = unsafePerformIO $ flip EmptyIndex
+  flip' (MkRaw (_ ** (_, Just _))) = unsafePerformIO $ putStrLn "Cannot flip non-bit"
+  
+  export
+  packEncoding : {a : Encodable} -> Encoding (BitType Bit) a -> Maybe (IndexType a -> IO ()) -> C_Encoding
+  packEncoding {a} x flip =
+    unsafePerformIO $ assert_total $ foreign FFI_C "mkEncoding"
+      (Int -> Int -> String -> Int -> CFnPtr (C_Context -> Int -> C_Encoding) -> Int -> CFnPtr (C_Context -> ()) -> C_Context -> IO C_Encoding)
+      (encodableType a)
+      (countChildren a)
+      (encodableIdent a)
+      (encodingBit x)
+      (MkCFnPtr childAt')
+      (maybe 0 (\_ => 1) flip)
+      (MkCFnPtr flip')
+      (MkRaw (a ** (x, flip)))
 
