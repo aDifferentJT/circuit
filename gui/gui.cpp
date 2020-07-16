@@ -12,6 +12,8 @@
 
 #include "createEncoding.hpp"
 
+#include "logo.xpm"
+
 std::string name;
 Encoding* input = nullptr;
 Encoding* output = nullptr;
@@ -40,6 +42,7 @@ class Frame : public wxFrame {
     void OnAbout(wxCommandEvent& event) {
       wxAboutDialogInfo info;
       info.AddDeveloper("Jonathan Tanner");
+      info.SetIcon(wxICON(logo));
       info.SetLicence("None yet");
       info.SetName("Circuit");
       info.SetVersion("0.1.0");
