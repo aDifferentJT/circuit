@@ -7,6 +7,8 @@
 #include <wx/wx.h>
 #endif
 #include <wx/aboutdlg.h>
+#include <wx/collpane.h>
+#include <wx/grid.h>
 
 #include <string>
 
@@ -18,14 +20,44 @@ std::string name;
 Encoding* input = nullptr;
 Encoding* output = nullptr;
 
+struct { int size; int depth; } analytics;
+
 class Panel : public wxScrolledWindow {
   public:
     wxSizer* sizer;
 
     Panel(wxWindow* parent, wxWindowID id) : wxScrolledWindow(parent, id) {
+      wxCollapsiblePane* analyticsPane = new wxCollapsiblePane(this, wxID_ANY, "Analytics:");
+
+      wxGrid* analyticsGrid = new wxGrid(analyticsPane->GetPane(), wxID_ANY);
+      analyticsGrid->CreateGrid(2, 1, wxGrid::wxGridSelectRows);
+      analyticsGrid->SetRowLabelValue(0, "Size:");
+      analyticsGrid->SetCellValue(0, 0, std::to_string(analytics.size));
+      analyticsGrid->SetRowLabelValue(1, "Depth:");
+      analyticsGrid->SetCellValue(1, 0, std::to_string(analytics.depth));
+      analyticsGrid->HideColLabels();
+      analyticsGrid->EnableEditing(false);
+      analyticsGrid->EnableDragRowSize(false);
+      analyticsGrid->EnableDragColSize(false);
+      analyticsGrid->Bind
+        ( wxEVT_GRID_RANGE_SELECT
+        , [analyticsGrid] (wxGridRangeSelectEvent& event) {
+            if (analyticsGrid->IsSelection()) {
+              analyticsGrid->ClearSelection();
+            }
+          }
+        );
+
+      wxSizer* analyticsSizer = new wxBoxSizer(wxVERTICAL);
+      analyticsSizer->Add(analyticsGrid, wxSizerFlags().Proportion(0));
+      analyticsPane->GetPane()->SetSizerAndFit(analyticsSizer);
+
       sizer = new wxBoxSizer(wxVERTICAL);
+
       sizer->Add(createEncoding(output, this), wxSizerFlags().Centre().Border());
       sizer->Add(createEncoding(input, this), wxSizerFlags().Centre().Border());
+      sizer->Add(analyticsPane, wxSizerFlags().Proportion(0));
+
       SetSizerAndFit(sizer);
       sizer->FitInside(this);
       SetScrollRate(5, 5);
@@ -64,15 +96,15 @@ class App : public wxApp {
 };
 
 wxBEGIN_EVENT_TABLE(Frame, wxFrame)
-    EVT_MENU(wxID_EXIT,  Frame::OnExit)
-    EVT_MENU(wxID_ABOUT, Frame::OnAbout)
+  EVT_MENU(wxID_EXIT,  Frame::OnExit)
+  EVT_MENU(wxID_ABOUT, Frame::OnAbout)
 wxEND_EVENT_TABLE()
 
 wxIMPLEMENT_APP_NO_MAIN(App);
 
 Frame::Frame(const wxString& title)
   : wxFrame(nullptr, wxID_ANY, title)
-  {
+{
   wxMenu *menuFile = new wxMenu; menuFile->Append(wxID_EXIT);
   wxMenu *menuHelp = new wxMenu; menuHelp->Append(wxID_ABOUT);
 
@@ -88,12 +120,13 @@ Frame::Frame(const wxString& title)
   SetSizerAndFit(sizer);
 }
 
-void gui(const char* _name, Encoding* _input, Encoding* _output) {
+void gui(const char* _name, Encoding* _input, Encoding* _output, int size, int depth) {
   name = _name;
   delete input;
   input = _input;
   delete output;
   output = _output;
+  analytics = {size, depth};
 
   static bool isInitialised = false;
   if (isInitialised) {

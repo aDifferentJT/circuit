@@ -46,5 +46,5 @@ mutual
 
 export
 netList : {a : Encodable} -> {b : Encodable} -> (a ~> b) -> NetList a
-netList {a} {b} f = snd $ flip runState empty $ netList' $ inputProducing
+netList {a} {b} f = snd $ flip runState empty $ netList' $ f a inputProducing
 

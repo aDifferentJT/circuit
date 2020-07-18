@@ -223,7 +223,7 @@ mutual
     -> {auto isInputToT : builderInput @{f' input} = input}
     -> ((input' : Encodable) -> f input')
     -> PartialIndex (builderInput @{f' input}) c
-    -> PrimType (builderInput @{f' input})
+    -> Encoding (BitType Bit) (builderInput @{f' input})
     -> IO ()
   prettySimulate input g i x = do
     putStr $ prettyInvert {t = Bit} {a = (builderOutput @{f' input})} Nothing $ simulate input g x
@@ -239,7 +239,7 @@ mutual
     -> {auto isInputToT : builderInput @{f' input} = input}
     -> ((input' : Encodable) -> f input')
     -> PartialIndex (builderInput @{f' input}) c
-    -> PrimType (builderInput @{f' input})
+    -> Encoding (BitType Bit) (builderInput @{f' input})
     -> String
     -> IO ()
   executeUserInput {c = Bit} input g i x " " = prettySimulate input g i $ mapBitAt bitNot i x

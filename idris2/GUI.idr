@@ -1,5 +1,6 @@
 module GUI
 
+import Analytics
 import Bit
 import C_Encoding
 import Circuit
@@ -10,38 +11,42 @@ import EncodingBuilder
 import IndexType
 
 %foreign "C:gui, gui"
-gui' : String -> C_Encoding -> C_Encoding -> PrimIO ()
+gui' : String -> C_Encoding -> C_Encoding -> Int -> Int -> PrimIO ()
 
-gui : String -> {a : Encodable} -> {b: Encodable} -> Encoding (BitType Bit) a -> (IndexType a -> IO ()) -> Encoding (BitType Bit) b -> IO ()
-gui name x flip y = primIO $ gui' name (packEncoding x (Just flip)) (packEncoding y Nothing)
+gui : String -> {a : Encodable} -> {b: Encodable} -> Encoding (BitType Bit) a -> (IndexType a -> IO ()) -> Encoding (BitType Bit) b -> Analytics -> IO ()
+gui name x flip y analytics =
+  primIO $
+  gui'
+    name
+    (packEncoding x (Just flip))
+    (packEncoding y Nothing)
+    (cast analytics.size)
+    (cast analytics.depth)
 
 guiSimulate'
-  : String
-  -> {0 f : Encodable -> Type}
-  -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
-  -> (input : Encodable)
-  -> {auto isInputToT : builderInput @{f' input} = input}
-  -> ((input' : Encodable) -> f input')
-  -> IORef (Encoding (BitType Bit) (builderInput @{f' input}))
+  :  String
+  -> {input : Encodable}
+  -> {a : Encodable}
+  -> Producing input a
+  -> IORef (Encoding (BitType Bit) input)
   -> IO ()
-guiSimulate' name input g x =
+guiSimulate' name x inputs =
   gui
     name
-    !(readIORef x)
+    !(readIORef inputs)
     (\i => do
-      modifyIORef x $ mapBitAt bitNot i
-      guiSimulate' name input g x
+      modifyIORef inputs $ mapBitAt bitNot i
+      guiSimulate' name x inputs
     )
-    (simulate input g !(readIORef x))
+    (simulate x !(readIORef inputs))
+    (analytics x)
 
 export
 guiSimulate
-  : String
-  -> {0 f : Encodable -> Type}
-  -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
-  -> (input : Encodable)
-  -> {auto isInputToT : builderInput @{f' input} = input}
-  -> ((input' : Encodable) -> f input')
+  :  String
+  -> {input : Encodable}
+  -> {a : Encodable}
+  -> Producing input a
   -> IO ()
-guiSimulate name input g = (newIORef $ replicate 0) >>= guiSimulate' name input g
+guiSimulate name x = (newIORef $ replicate 0) >>= guiSimulate' name x
 

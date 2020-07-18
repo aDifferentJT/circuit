@@ -43,7 +43,7 @@ mergeArgs {as = _ :: _} cToType f g h = \x => mergeArgs cToType f (g x) h
 
 public export
 FromCType : Encodable -> Type
-FromCType a = manyArgs (replicate (countBits a) Int) (PrimType a)
+FromCType a = manyArgs (replicate (countBits a) Int) (Encoding (BitType Bit) a)
 
 export
 fromCPoly : (a : Encodable) -> FromCType a
@@ -60,7 +60,7 @@ fromCPoly (NewEnc _ a)      = composeN NewEncoding $ fromCPoly a
 
 public export
 ToCType : {default 0 extra : Nat} -> Encodable -> Type
-ToCType {extra} a = PrimType a -> manyArgs (replicate (countIndices a + extra) Int) Int
+ToCType {extra} a = Encoding (BitType Bit) a -> manyArgs (replicate (countIndices a + extra) Int) Int
 
 export
 toCPoly : {default 0 extra : Nat} -> (a : Encodable) -> ToCType {extra} a
