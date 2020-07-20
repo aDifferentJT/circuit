@@ -45,6 +45,6 @@ mutual
   netList' (NewEncoding x) = NewEncoding <$> netList' x
 
 export
-netList : {a : Encodable} -> {b : Encodable} -> (a ~> b) -> NetList a
-netList {a} {b} f = snd $ flip runState empty $ netList' $ f a inputProducing
+netList : {input : Encodable} -> {a : Encodable} -> Producing input a -> NetList input
+netList = snd . flip runState empty . netList'
 

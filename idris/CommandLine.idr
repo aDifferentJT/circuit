@@ -9,6 +9,25 @@ import IndexType
 import System
 import TUI
 
+logo : String
+logo = """╲
+ ╲
+  ╲
+   ╲
+    ╲╱▔▔▔▔▔╲
+    ╱╲      ╲
+   ╱  ▏      ╲
+   ▏ ╲▏      ▕
+   ▏  ╲      ▕
+   ╲  ╱╲▁▁▁  ╱
+    ╲╱  ╲  ╲╱
+    ╱╲▁▁▁▁▁╱╲
+   ╱         ╲
+  ╱           ╲
+ ╱             ╲
+╱               ╲
+"""
+
 parseArgs
   :  String
   -> {input : Encodable}
@@ -32,5 +51,5 @@ commandLine
   -> {a : Encodable}
   -> Producing input a
   -> IO ()
-commandLine name x = getArgs >>= parseArgs name x
+commandLine name x = putStr logo >>= \_ => getArgs >>= parseArgs name x
 
