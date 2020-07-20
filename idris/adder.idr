@@ -2,9 +2,9 @@
 import Analytics
 import Circuit
 import C_Circuit
+import CommandLine
 import Data.Bits
 import Data.Vect
-import GUI
 import IndexType
 import NatProofs
 import Utils
@@ -264,7 +264,7 @@ brentKungAdder input = carryLookaheadAdder input brentKungPropagation
 covering
 test : (n : Nat) -> IO ()
 test n =
-  guiSimulate "Ripple Adder"
+  commandLine "Ripple Adder"
     {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $
     constructProducing
       {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)}
@@ -314,13 +314,13 @@ main = do
 
 {-
 exportList : FFI_Export FFI_C "adder.h" []
-exportList = Data (PrimType Bit) "bit_t"
+exportList = Data (Encoding (BitType Bit) Bit) "bit_t"
   $ Fun fromCBit "fromCBit"
   $ Fun toCBit "toCBit"
-  $ Data (PrimType (Bit && Bit)) "bit2_t"
+  $ Data (Encoding (BitType Bit) (Bit && Bit)) "bit2_t"
   $ Fun fromCBit2 "fromCBit2"
   $ Fun toCBit2 "toCBit2"
-  $ Data (PrimType (Bit && Bit && Bit)) "bit3_t"
+  $ Data (Encoding (BitType Bit) (Bit && Bit && Bit)) "bit3_t"
   $ Fun fromCBit3 "fromCBit3"
   $ Fun toCBit3 "toCBit3"
   $ Fun bitNot "not"

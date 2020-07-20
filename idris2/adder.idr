@@ -1,11 +1,11 @@
 
 import Analytics
 import Circuit
+import CommandLine
 import Data.List
 import Data.Nat
 import Data.Stream
 import Data.Vect
-import GUI
 import IndexType
 import NatProofs
 import Utils
@@ -225,7 +225,7 @@ brentKungAdder input = carryLookaheadAdder input brentKungPropagation
 
 covering
 test : (n : Nat) -> IO ()
-test n = guiSimulate "Carry Lookahead Adder" {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing (brentKungAdder {n})
+test n = commandLine "Carry Lookahead Adder" {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing $ brentKungAdder {n}
 
 printAnalytics : (n : Nat) -> IO ()
 printAnalytics n = do
@@ -243,6 +243,5 @@ printAnalytics n = do
 covering
 main : IO ()
 main = do
-  printAnalytics 128
-  --test 4
+  test 4
 

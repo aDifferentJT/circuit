@@ -86,8 +86,7 @@ inputProducing = map {f = \t => Encoding (BitType t) input} InputBit IndexTypes
 mutual
   covering
   runPrimitive'
-    :  {input : Encodable}
-    -> {a : Encodable}
+    :  {a : Encodable}
     -> {b : Encodable}
     -> Encoding (BitType Bit) input
     -> Primitive input a b
@@ -99,8 +98,7 @@ mutual
 
   covering
   runPrimitive
-    :  {input : Encodable}
-    -> {a : Encodable}
+    :  {a : Encodable}
     -> {b : Encodable}
     -> Encoding (BitType Bit) input
     -> Primitive input a b
@@ -114,8 +112,7 @@ mutual
 
   covering
   simulate'
-    :  {input : Encodable}
-    -> {a : Encodable}
+    :  {a : Encodable}
     -> Encoding (BitType Bit) input
     -> Producing input a
     -> State (SortedMap Bits64 (c : Encodable ** Encoding (BitType Bit) c)) (Encoding (BitType Bit) a)
@@ -133,10 +130,9 @@ covering
 export
 simulate
   :  {a : Encodable}
-  -> {b : Encodable}
-  -> Producing a b
+  -> Producing input a
+  -> Encoding (BitType Bit) input
   -> Encoding (BitType Bit) a
-  -> Encoding (BitType Bit) b
 simulate x inputs = fst $ flip runState empty $ simulate' inputs x
 
 export

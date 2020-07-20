@@ -14,20 +14,10 @@ import Utils
 
 %default total
 
-public export
-PrimType : Encodable -> Type
-PrimType = Encoding $ BitType Bit
-
-infixr 10 ~~>
-public export
-(~~>) : Encodable -> Encodable -> Type
-a ~~> b = PrimType a -> PrimType b
-
-
 mutual
   public export
   data Primitive : Encodable -> Encodable -> Encodable -> Type where
-    MkPrimitive : String -> Bits64 -> (a ~~> b) -> Producing input a -> Primitive input a b
+    MkPrimitive : String -> Bits64 -> (Encoding (BitType Bit) a -> Encoding (BitType Bit) b) -> Producing input a -> Primitive input a b
 
   public export
   data ProducingBit : Encodable -> Encodable -> Type where
@@ -99,9 +89,9 @@ mutual
     :  {input : Encodable}
     -> {a : Encodable}
     -> {b : Encodable}
-    -> PrimType input
+    -> Encoding (BitType Bit) input
     -> Primitive input a b
-    -> State (SortedMap Bits64 (c : Encodable ** PrimType c)) (PrimType b)
+    -> State (SortedMap Bits64 (c : Encodable ** Encoding (BitType Bit) c)) (Encoding (BitType Bit) b)
   runPrimitive' {b} inputs prim@(MkPrimitive _ _ f' x) = do
     y <- f' <$> simulate' inputs x
     modify (insert (hash prim) (b ** y))
@@ -112,9 +102,9 @@ mutual
     :  {input : Encodable}
     -> {a : Encodable}
     -> {b : Encodable}
-    -> PrimType input
+    -> Encoding (BitType Bit) input
     -> Primitive input a b
-    -> State (SortedMap Bits64 (c : Encodable ** PrimType c)) (PrimType b)
+    -> State (SortedMap Bits64 (c : Encodable ** Encoding (BitType Bit) c)) (Encoding (BitType Bit) b)
   runPrimitive {b} inputs prim =
     case Data.SortedMap.lookup (hash prim) !get of
          Just (b' ** xs) => case decEq b b' of
@@ -127,9 +117,9 @@ mutual
     :  {input : Encodable}
     -> {auto inputsEqual : input = input'}
     -> {a : Encodable}
-    -> PrimType input
+    -> Encoding (BitType Bit) input
     -> Producing input' a
-    -> State (SortedMap Bits64 (c : Encodable ** PrimType c)) (PrimType a)
+    -> State (SortedMap Bits64 (c : Encodable ** Encoding (BitType Bit) c)) (Encoding (BitType Bit) a)
   simulate' {inputsEqual = Refl} {a = Bit} inputs (BitEncoding x) =
     case x of
          InputBit i => pure $ index i inputs

@@ -1,8 +1,9 @@
-module Pretty
+module TUI
 
 import Circuit
 import Data.DPair.Extra
 import Data.HVect
+import Data.HVect.Extra
 import Data.List
 import Data.Nat
 import Data.Vect
@@ -214,12 +215,12 @@ prettyInvert i x =
 
 mutual
   covering export
-  prettySimulate
+  tuiSimulate
     :  Producing input a
     -> Encoding (BitType Bit) input
     -> PartialIndex input b
     -> IO ()
-  prettySimulate x inputs {b} i = do
+  tuiSimulate x inputs {b} i = do
     putStr $ prettyInvert {t = Bit} Nothing $ simulate x inputs
     putStr $ pretty {t = Bit} (Just (b ** i)) inputs
     getLine >>= executeUserInput x inputs i
@@ -231,19 +232,19 @@ mutual
     -> PartialIndex input b
     -> String
     -> IO ()
-  executeUserInput {b = Bit} x inputs i " " = prettySimulate x (mapBitAt bitNot i inputs) i
-  executeUserInput x inputs i "u" = prettySimulate x inputs $ snd $ moveUp i
-  executeUserInput x inputs i "d" = prettySimulate x inputs $ snd $ moveDown i
-  executeUserInput x inputs i "l" = prettySimulate x inputs $ snd $ moveLeft i
-  executeUserInput x inputs i "r" = prettySimulate x inputs $ snd $ moveRight i
+  executeUserInput {b = Bit} x inputs i " " = tuiSimulate x (mapBitAt bitNot i inputs) i
+  executeUserInput x inputs i "u" = tuiSimulate x inputs $ snd $ moveUp i
+  executeUserInput x inputs i "d" = tuiSimulate x inputs $ snd $ moveDown i
+  executeUserInput x inputs i "l" = tuiSimulate x inputs $ snd $ moveLeft i
+  executeUserInput x inputs i "r" = tuiSimulate x inputs $ snd $ moveRight i
   executeUserInput x inputs i s =
     if s == (pack $ the (List Char) [chr 27, '[', 'A'])
-       then prettySimulate x inputs $ snd $ moveUp i
+       then tuiSimulate x inputs $ snd $ moveUp i
        else if s == (pack $ the (List Char) [chr 27, '[', 'B'])
-       then prettySimulate x inputs $ snd $ moveDown i
+       then tuiSimulate x inputs $ snd $ moveDown i
        else if s == (pack $ the (List Char) [chr 27, '[', 'C'])
-       then prettySimulate x inputs $ snd $ moveRight i
+       then tuiSimulate x inputs $ snd $ moveRight i
        else if s == (pack $ the (List Char) [chr 27, '[', 'D'])
-       then prettySimulate x inputs $ snd $ moveLeft i
-       else prettySimulate x inputs i
+       then tuiSimulate x inputs $ snd $ moveLeft i
+       else tuiSimulate x inputs i
 

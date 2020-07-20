@@ -20,11 +20,6 @@ hVectToVect {xs = []} g [] = []
 hVectToVect {xs = x :: xs} g (y :: ys) = g y :: hVectToVect {f} g ys
 
 public export
-vectToHVect : Vect n t -> HVect (replicate n t)
-vectToHVect [] = []
-vectToHVect (x :: xs) = x :: vectToHVect xs
-
-public export
 hVectOneElement : {0 n : Nat} -> {k : Fin n} -> {as : Vect n a} -> (0 f : a -> Type) -> f (index k as) -> HVect (map (\a => Maybe (f a)) as)
 hVectOneElement {k = FZ} {as = _ :: _} f x = Just x :: replicate (\a => Maybe (f a)) (\_ => Nothing)
 hVectOneElement {k = FS k} {as = _ :: as} f x = Nothing :: hVectOneElement {k} {as} f x
