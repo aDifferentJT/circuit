@@ -7,7 +7,6 @@ import Circuit
 import Data.IORef
 import Encodable
 import Encoding
-import EncodingBuilder
 import IndexType
 
 %foreign "C:gui, gui"

@@ -1,47 +1,43 @@
 module GUI
 
+import Analytics
 import Bit
 import C_Encoding
 import Circuit
 import Data.IORef
 import Encodable
 import Encoding
-import EncodingBuilder
 import IndexType
 
 %include C "gui.h"
 %link C "gui.so"
 
-gui : String -> {a : Encodable} -> {b: Encodable} -> Encoding (BitType Bit) a -> (IndexType a -> IO ()) -> Encoding (BitType Bit) b -> IO ()
-gui name x flip y = foreign FFI_C "gui" (String -> C_Encoding -> C_Encoding -> IO ()) name (packEncoding x (Just flip)) (packEncoding y Nothing)
+gui : String -> {a : Encodable} -> {b: Encodable} -> Encoding (BitType Bit) a -> (IndexType a -> IO ()) -> Encoding (BitType Bit) b -> Analytics -> IO ()
+gui name x flip y analytics =
+  foreign FFI_C "gui" (String -> C_Encoding -> C_Encoding -> Int -> Int -> IO ())
+    name
+    (packEncoding x (Just flip))
+    (packEncoding y Nothing)
+    (cast $ size $ analytics)
+    (cast $ depth $ analytics)
 
 guiSimulate'
   : String
-  -> {f : Encodable -> Type}
-  -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
-  -> (input : Encodable)
-  -> {auto isInputToT : builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)) = input}
-  -> ((input' : Encodable) -> f input')
-  -> IORef (Encoding (BitType Bit) (builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input))))
+  -> Producing input a
+  -> IORef (Encoding (BitType Bit) input)
   -> IO ()
-guiSimulate' name {f'} input g x = do
+guiSimulate' name x inputs = do
   gui
     name
-    !(readIORef x)
+    !(readIORef inputs)
     (\i => do
-      modifyIORef x $ mapBitAt bitNot i
-      guiSimulate' name {f'} input g x
+      modifyIORef inputs $ mapBitAt bitNot i
+      guiSimulate' name x inputs
     )
-    (simulate {f'} input g !(readIORef x))
+    (simulate x !(readIORef inputs))
+    (analytics x)
 
 covering export
-guiSimulate
-  : String
-  -> {f : Encodable -> Type}
-  -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
-  -> (input : Encodable)
-  -> {auto isInputToT : builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)) = input}
-  -> ((input' : Encodable) -> f input')
-  -> IO ()
-guiSimulate name {f'} input g = (newIORef $ replicate 0) >>= guiSimulate' name {f'} input g
+guiSimulate : String -> Producing input a -> IO ()
+guiSimulate name x = (newIORef $ replicate 0) >>= guiSimulate' name x
 

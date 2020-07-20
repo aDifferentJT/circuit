@@ -142,18 +142,16 @@ mutual
 
 covering
 export
-simulate
+simulate : Producing a b -> Encoding (BitType Bit) a -> Encoding (BitType Bit) b
+simulate x inputs = fst $ flip runState empty $ simulate' inputs x
+
+export
+constructProducing
   :  {f : Encodable -> Type}
   -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
-  -> (input : Encodable)
+  -> {input : Encodable}
   -> {auto isInputToT : builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)) = input}
   -> ((input' : Encodable) -> f input')
-  -> builderInput @{f' input} (MkProxy (ProducingBit input Bit, f input)) ~~> builderOutput @{f' input} (MkProxy (ProducingBit input Bit, f input))
-simulate {f} {f'} input {isInputToT} g inputs =
-  Basics.fst $
-  flip runState empty $
-  simulate' inputs $
-  rewrite isInputToT in
-          constructEncodingFunction @{f' input} (g input) $
-          rewrite isInputToT in inputProducing
+  -> Producing input (builderOutput @{f' input} (MkProxy (ProducingBit input Bit, f input)))
+constructProducing {f} {f'} {input} {isInputToT} g = constructEncodingFunction @{f' input} (g input) $ rewrite isInputToT in inputProducing
 

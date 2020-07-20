@@ -1,5 +1,6 @@
 module Encoding
 
+import Bit
 import Data.Fin
 import Data.Hash
 import Data.SortedSet
@@ -69,6 +70,10 @@ export
   saltedHash64 [] = saltedHash64 ()
   saltedHash64 {t} (x :: xs) = saltedHash64 (hash @{HashableEncoding {t}} x, assert_total $ hash @{HashableEncoding {t}} xs)
   saltedHash64 {t} (NewEncoding x) = saltedHash64 (0, hash @{HashableEncoding {t}} x)
+
+export
+fromInteger : (x : Integer) -> {auto prf : IsBit x} -> Encoding (BitType Bit) Bit
+fromInteger x = BitEncoding $ fromInteger x
 
 export
 replicate : {a : Encodable} -> (f Bit) -> Encoding f a

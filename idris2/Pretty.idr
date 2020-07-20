@@ -216,45 +216,41 @@ prettyInvert i x =
 mutual
   covering export
   prettySimulate
-    :  {0 f : Encodable -> Type}
-    -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
-    -> {c : Encodable}
-    -> (input : Encodable)
-    -> {auto isInputToT : builderInput @{f' input} = input}
-    -> ((input' : Encodable) -> f input')
-    -> PartialIndex (builderInput @{f' input}) c
-    -> Encoding (BitType Bit) (builderInput @{f' input})
+    :  {input : Encodable}
+    -> {a : Encodable}
+    -> Producing input a
+    -> Encoding (BitType Bit) input
+    -> {b : Encodable}
+    -> PartialIndex input b
     -> IO ()
-  prettySimulate input g i x = do
-    putStr $ prettyInvert {t = Bit} {a = (builderOutput @{f' input})} Nothing $ simulate input g x
-    putStr $ pretty {t = Bit} {a = (builderInput @{f' input})} (Just (c ** i)) x
-    getLine >>= executeUserInput input g i x
+  prettySimulate x inputs i = do
+    putStr $ prettyInvert {t = Bit} Nothing $ simulate x inputs
+    putStr $ pretty {t = Bit} (Just (b ** i)) inputs
+    getLine >>= executeUserInput x inputs i
   
   covering
   executeUserInput
-    :  {0 f : Encodable -> Type}
-    -> {auto f' : (input' : Encodable) -> EncodingBuilder (ProducingBit input' Bit) (f input')}
-    -> {c : Encodable}
-    -> (input : Encodable)
-    -> {auto isInputToT : builderInput @{f' input} = input}
-    -> ((input' : Encodable) -> f input')
-    -> PartialIndex (builderInput @{f' input}) c
-    -> Encoding (BitType Bit) (builderInput @{f' input})
+    :  {input : Encodable}
+    -> {a : Encodable}
+    -> Producing input a
+    -> Encoding (BitType Bit) input
+    -> {b : Encodable}
+    -> PartialIndex input b
     -> String
     -> IO ()
-  executeUserInput {c = Bit} input g i x " " = prettySimulate input g i $ mapBitAt bitNot i x
-  executeUserInput input g i x "u" = prettySimulate input g (snd $ moveUp i) x
-  executeUserInput input g i x "d" = prettySimulate input g (snd $ moveDown i) x
-  executeUserInput input g i x "l" = prettySimulate input g (snd $ moveLeft i) x
-  executeUserInput input g i x "r" = prettySimulate input g (snd $ moveRight i) x
-  executeUserInput input g i x s =
+  executeUserInput {b = Bit} x inputs i " " = prettySimulate x (mapBitAt bitNot i inputs) i
+  executeUserInput x inputs i "u" = prettySimulate x inputs $ snd $ moveUp i
+  executeUserInput x inputs i "d" = prettySimulate x inputs $ snd $ moveDown i
+  executeUserInput x inputs i "l" = prettySimulate x inputs $ snd $ moveLeft i
+  executeUserInput x inputs i "r" = prettySimulate x inputs $ snd $ moveRight i
+  executeUserInput x inputs i s =
     if s == (pack $ the (List Char) [chr 27, '[', 'A'])
-       then prettySimulate input g (snd $ moveUp i) x
+       then prettySimulate x inputs $ snd $ moveUp i
        else if s == (pack $ the (List Char) [chr 27, '[', 'B'])
-       then prettySimulate input g (snd $ moveDown i) x
+       then prettySimulate x inputs $ snd $ moveDown i
        else if s == (pack $ the (List Char) [chr 27, '[', 'C'])
-       then prettySimulate input g (snd $ moveRight i) x
+       then prettySimulate x inputs $ snd $ moveRight i
        else if s == (pack $ the (List Char) [chr 27, '[', 'D'])
-       then prettySimulate input g (snd $ moveLeft i) x
-       else prettySimulate input g i x
+       then prettySimulate x inputs $ snd $ moveLeft i
+       else prettySimulate x inputs i
 
