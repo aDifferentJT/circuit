@@ -7,7 +7,7 @@ extern "C" {
 
 struct Encoding;
 
-void gui(const char* _name, struct Encoding* _input, struct Encoding* _output, int size, int depth);
+void gui(char const *_name, struct Encoding *_input, struct Encoding *_output, int size, int depth);
 
 #ifdef __cplusplus
 }

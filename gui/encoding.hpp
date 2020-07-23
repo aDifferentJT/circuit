@@ -8,13 +8,13 @@ enum class EncodingType : int {
 };
 
 struct Encoding {
+  std::function<Encoding*(int i)> childAt;
+  std::function<void()> flipBit;
   EncodingType type;
   int numChildren;
   const char* ident;
-  int bit;
-  std::function<Encoding*(int i)> childAt;
-  int editable;
-  std::function<void()> flipBit;
+  bool bit;
+  bool editable;
 };
 
 #endif

@@ -4,7 +4,7 @@
 
 extern "C"
 Encoding* mkEncoding
-  ( EncodingType type
+  ( int type
   , int numChildren
   , const char* ident
   , int bit
@@ -14,13 +14,13 @@ Encoding* mkEncoding
   , void* idrisData
   ) {
   return new Encoding
-    { type
+    { std::bind(childAt, idrisData, std::placeholders::_1)
+    , std::bind(flip, idrisData)
+    , static_cast<EncodingType>(type)
     , numChildren
     , ident
-    , bit
-    , std::bind(childAt, idrisData, std::placeholders::_1)
-    , editable
-    , std::bind(flip, idrisData)
+    , static_cast<bool>(bit)
+    , static_cast<bool>(editable)
     };
 }
 

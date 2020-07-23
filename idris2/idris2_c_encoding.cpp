@@ -3,7 +3,7 @@
 
 extern "C"
 Encoding* mkEncoding
-  ( EncodingType type
+  ( int type
   , int numChildren
   , const char* ident
   , int bit
@@ -12,13 +12,13 @@ Encoding* mkEncoding
   , void (*flip)()
   ) {
   return new Encoding
-    { type
+    { childAt
+    , flip
+    , static_cast<EncodingType>(type)
     , numChildren
     , ident
-    , bit
-    , childAt
-    , editable
-    , flip
+    , static_cast<bool>(bit)
+    , static_cast<bool>(editable)
     };
 }
 
