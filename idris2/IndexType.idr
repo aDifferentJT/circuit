@@ -3,7 +3,9 @@ module IndexType
 import AuxProofs
 import Data.DPair.Extra
 import Data.Hash
+import Data.List
 import Data.SortedSet
+import Data.Strings
 import Data.Vect
 import Debug.Trace
 import Decidable.Equality
@@ -58,14 +60,21 @@ Ord (PartialIndex a b) where
   compare (HeadIndex _) (TailIndex _) = LT
   compare (TailIndex _) (HeadIndex _) = GT
 
+show' : {a : Encodable} -> PartialIndex a b -> List String
+show' EmptyIndex = []
+show' (LeftIndex   i) = "Left" :: show' i
+show' (RightIndex  i) = "Right" :: show' i
+show' (HeadIndex   i) = "Head" :: show' i
+show' (TailIndex   i) = "Tail" :: show' i
+show' {a = NewEnc ident _} (NewEncIndex i) = ident :: show' i
+
 export
 {a : Encodable} -> Show (PartialIndex a b) where
-  show EmptyIndex = ""
-  show (LeftIndex   i) = "Left " ++ show i
-  show (RightIndex  i) = "Right " ++ show i
-  show (HeadIndex   i) = "Head " ++ show i
-  show (TailIndex   i) = "Tail " ++ show i
-  show {a = NewEnc ident _} (NewEncIndex i) = ident ++ " " ++ show i
+  show = unwords . show'
+
+export
+showIdent : {a : Encodable} -> PartialIndex a b -> String
+showIdent = concat . intersperse "_" . show'
 
 export
 Hashable (PartialIndex a b) where

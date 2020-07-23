@@ -41,16 +41,13 @@ export
   show {a = NewEnc ident a} (NewEncoding x) = ident ++ " " ++ show @{ShowEncoding} x
 
 export
-{a : Encodable} -> Functor (\t => Encoding (BitType t) a) where
-  map {a = Bit} f (BitEncoding x) = BitEncoding $ f x
-  map _ UnitEnc = UnitEnc
-  map {a = a1 && a2} f (x && y) =
-    (  map {f = \t => Encoding (BitType t) a1} f x
-    && map {f = \t => Encoding (BitType t) a2} f y
-    )
-  map f [] = []
-  map {a = EncVect (S n) a} f (x :: xs) = map {f = \t => Encoding (BitType t) a} f x :: map {f = \t => Encoding (BitType t) (EncVect n a)} f xs
-  map {a = NewEnc _ a} f (NewEncoding x) = NewEncoding $ map {f = \t => Encoding (BitType t) a} f x
+map : {a : Encodable} -> (t1 -> t2) -> Encoding (BitType t1) a -> Encoding (BitType t2) a
+map {a = Bit} f (BitEncoding x) = BitEncoding $ f x
+map _ UnitEnc = UnitEnc
+map f (x && y) = map f x && map f y
+map f [] = []
+map f (x :: xs) = map f x :: map f xs
+map f (NewEncoding x) = NewEncoding $ map f x
 
 export
 mapEncodings : {a : Encodable} -> ({b : Encodable} -> PartialIndex a b -> f b -> g b) -> Encoding f a -> Encoding g a
@@ -60,6 +57,24 @@ mapEncodings h (x && y) = (mapEncodings (h . LeftIndex) x && mapEncodings (h . R
 mapEncodings h [] = []
 mapEncodings h (x :: xs) = mapEncodings (h . HeadIndex) x :: mapEncodings (h . TailIndex) xs
 mapEncodings h (NewEncoding x) = NewEncoding $ mapEncodings (h . NewEncIndex) x
+
+export
+traverse : Applicative f => {a : Encodable} -> (t1 -> f t2) -> Encoding (BitType t1) a -> f (Encoding (BitType t2) a)
+traverse {a = Bit} f (BitEncoding x) = BitEncoding <$> f x
+traverse f UnitEnc = pure UnitEnc
+traverse f (x && y) = liftA2 (&&) (traverse f x) (traverse f y)
+traverse f [] = pure []
+traverse f (x :: xs) = liftA2 (::) (traverse f x) (traverse f xs)
+traverse f (NewEncoding x) = NewEncoding <$> traverse f x
+
+export
+zipWith : {a : Encodable} -> (t1 -> t2 -> t3) -> Encoding (BitType t1) a -> Encoding (BitType t2) a -> Encoding (BitType t3) a
+zipWith {a = Bit} f (BitEncoding x) (BitEncoding y) = BitEncoding $ f x y
+zipWith f UnitEnc UnitEnc = UnitEnc
+zipWith f (x1 && x2) (y1 && y2) = zipWith f x1 y1 && zipWith f x2 y2
+zipWith f [] [] = []
+zipWith f (x :: xs) (y :: ys) = zipWith f x y :: zipWith f xs ys
+zipWith f (NewEncoding x) (NewEncoding y) = NewEncoding $ zipWith f x y
 
 export
 [HashableEncoding] {a : Encodable} -> Hashable t => Hashable (Encoding (BitType t) a) where
@@ -106,13 +121,13 @@ IndexTypes : {a : Encodable} -> Encoding (BitType (IndexType a)) a
 IndexTypes {a = Bit} = BitEncoding EmptyIndex
 IndexTypes {a = UnitEnc} = UnitEnc
 IndexTypes {a = a1 && a2} =
-     map {f = \t => Encoding (BitType t) a1} LeftIndex  IndexTypes
-  && map {f = \t => Encoding (BitType t) a2} RightIndex IndexTypes
+     map LeftIndex  IndexTypes
+  && map RightIndex IndexTypes
 IndexTypes {a = EncVect Z _} = []
 IndexTypes {a = EncVect (S n) a} =
-     map {f = \t => Encoding (BitType t) a} HeadIndex IndexTypes
-  :: map {f = \t => Encoding (BitType t) (EncVect n a)} TailIndex (IndexTypes {a = assert_smaller (EncVect (S n) a) $ EncVect n a})
-IndexTypes {a = NewEnc _ a} = NewEncoding $ map {f = \t => Encoding (BitType t) a} NewEncIndex IndexTypes
+     map HeadIndex IndexTypes
+  :: map TailIndex (IndexTypes {a = assert_smaller (EncVect (S n) a) $ EncVect n a})
+IndexTypes {a = NewEnc _ a} = NewEncoding $ map NewEncIndex IndexTypes
 
 export
 indexVect : Fin n -> Encoding (BitType t) (EncVect n a) -> Encoding (BitType t) a

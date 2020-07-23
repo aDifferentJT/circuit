@@ -31,13 +31,18 @@ second f (x, y) = (x, f y)
 
 infixr 3 &&&
 public export
-(&&&) : (a -> b) -> (a -> b') -> a -> (b, b')
+(&&&) : (a -> b1) -> (a -> b2) -> a -> (b1, b2)
 (&&&) f g (x, y) = (f x, g y)
 
 infixr 3 ***
 public export
-(***) : (a -> b) -> (a' -> b') -> (a, a') -> (b, b')
+(***) : (a1 -> b1) -> (a2 -> b2) -> (a1, a2) -> (b1, b2)
 (***) f g (x, y) = (f x, g y)
+
+infixr 3 ****
+public export
+(****) : (a1 -> b1 -> c1) -> (a2 -> b2 -> c2) -> (a1, a2) -> (b1, b2) -> (c1, c2)
+(****) f g (x1, x2) (y1, y2) = (f x1 y1, g x2 y2)
 
 
 mapLeft : (a -> a') -> Either a b -> Either a' b
@@ -66,6 +71,7 @@ zipUnequalVect {n = S n} g xss =
        )
 
 
+export
 showHashIdent : Bits64 -> String
 showHashIdent = pack . showHashIdent'
   where
@@ -74,7 +80,7 @@ showHashIdent = pack . showHashIdent'
 
     showHashIdent' : Bits64 -> List Char
     showHashIdent' 0 = []
-    showHashIdent' n = nybble (prim__and_Bits64 n 0xf) :: showHashIdent' (assert_smaller n $ prim__shr_Bits64 n 4)
+    showHashIdent' n = if n + 1 == 1 then [] else nybble (prim__and_Bits64 n 0xf) :: showHashIdent' (assert_smaller n $ prim__shr_Bits64 n 4)
 
 
 export
@@ -92,4 +98,8 @@ thenCompare : Ordering -> Lazy Ordering -> Ordering
 thenCompare LT y = LT
 thenCompare EQ y = y
 thenCompare GT y = GT
+
+export
+liftA2 : Applicative f => (a -> b -> c) -> f a -> f b -> f c
+liftA2 g x y = g <$> x <*> y
 

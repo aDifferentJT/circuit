@@ -71,7 +71,7 @@ primitive
   -> t2
 primitive name g input =
     deconstructEncodingFunction $
-    \x => map {f = \t => Encoding (BitType t) (builderOutput @{t2'})} (BitProducedFrom (primitive' x)) $
+    \x => map (BitProducedFrom (primitive' x)) $
          rewrite sameOutput in IndexTypes
   where
     primitive' : Producing input (builderInput @{t2'}) -> Primitive input (builderInput @{t1'}) (builderOutput @{t1'})
@@ -80,7 +80,7 @@ primitive name g input =
 
 export
 inputProducing : {input : Encodable} -> Producing input input
-inputProducing = map {f = \t => Encoding (BitType t) input} InputBit IndexTypes
+inputProducing = map InputBit IndexTypes
 
 
 mutual

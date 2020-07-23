@@ -4,6 +4,7 @@ import Circuit
 import Control.Monad.State
 import Data.Hash
 import Data.SortedMap
+import Data.SortedSet
 import Data.Vect
 import IndexType
 import Utils
@@ -11,33 +12,38 @@ import Utils
 %default total
 
 public export
-NetListOutput : Encodable -> Encodable -> Type
-NetListOutput a b = Encoding (BitType (Either (IndexType a) Bits64)) b
-
-public export
-NetList : Encodable -> Type
-NetList input = SortedMap (String, Bits64)
+NetList : Type
+NetList = SortedMap (String, Bits64)
   (  a : Encodable
   ** b : Encodable
-  ** ( NetListOutput input a
+  ** ( Encoding (BitType Bit) a -> Encoding (BitType Bit) b
+     , Encoding (BitType Bits64) a
      , Encoding (BitType Bits64) b
      )
   )
 
+encodingToSet : Ord t => {a : Encodable} -> Encoding (BitType t) a -> SortedSet t
+encodingToSet {a = Bit} (BitEncoding x) = fromList [x]
+encodingToSet UnitEnc = empty
+encodingToSet (x && y) = encodingToSet x `union` encodingToSet y
+encodingToSet [] = empty
+encodingToSet (x :: xs) = encodingToSet x `union` encodingToSet xs
+encodingToSet (NewEncoding x) = encodingToSet x
+
 mutual
-  netListFromPrim : {input : Encodable} -> {a : Encodable} -> {b : Encodable} -> Primitive input a b -> State (NetList input) (NetListOutput input b)
-  netListFromPrim prim@(MkPrimitive name h _ x) = do
-    let output = map {f = \t => Encoding (BitType t) b} (hash . the (ProducingBit input Bit) . BitProducedFrom prim) IndexTypes
-    when (isNothing $ SortedMap.lookup (name, h) !get) $
-      modify $
-      insert (name, h) (a ** b ** (!(netList' x), output))
-    pure $ map {f = \t => Encoding (BitType t) b} Right output
+  netListFromPrim : {input : Encodable} -> {a : Encodable} -> {b : Encodable} -> Primitive input a b -> State (SortedSet Bits64, NetList) ()
+  netListFromPrim prim@(MkPrimitive name h f x) = do
+    let output = map (hash . the (ProducingBit input Bit) . BitProducedFrom prim) IndexTypes
+    when (isNothing $ SortedMap.lookup (name, h) $ snd !get) $ do
+      primInput <- netList' x
+      modify $ union (encodingToSet output) *** insert (name, h) (a ** b ** (f, primInput, output))
   
-  netList' : {input : Encodable} -> {a : Encodable} -> Producing input a -> State (NetList input) (NetListOutput input a)
-  netList' {a = Bit} (BitEncoding x) =
+  netList' : {input : Encodable} -> {a : Encodable} -> Producing input a -> State (SortedSet Bits64, NetList) (Encoding (BitType Bits64) a)
+  netList' {a = Bit} (BitEncoding x) = do
     case x of
-         InputBit i => pure $ BitEncoding $ Left i
-         BitProducedFrom prim i => index i <$> netListFromPrim prim
+         InputBit i => pure ()
+         BitProducedFrom prim i => netListFromPrim prim
+    pure $ BitEncoding $ hash x
   netList' UnitEnc = pure UnitEnc
   netList' (x && y) = pure (!(netList' x) && !(netList' y))
   netList' [] = pure []
@@ -45,6 +51,20 @@ mutual
   netList' (NewEncoding x) = NewEncoding <$> netList' x
 
 export
-netList : {input : Encodable} -> {a : Encodable} -> Producing input a -> NetList input
-netList = snd . flip runState empty . netList'
+netList
+  :  {input : Encodable}
+  -> {output : Encodable}
+  -> Producing input output
+  -> ( Encoding (BitType Bits64) input
+     , SortedSet Bits64
+     , Encoding (BitType Bits64) output
+     , NetList
+     )
+netList x =
+  let (outputBits, internalBits, nl) = runState (netList' x) (empty, empty) in
+      ( map (hash . the (ProducingBit input Bit) . InputBit) IndexTypes
+      , internalBits `difference` encodingToSet outputBits
+      , outputBits
+      , nl
+      )
 
