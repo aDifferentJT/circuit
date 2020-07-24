@@ -135,11 +135,20 @@ indexVect FZ (x :: _) = x
 indexVect (FS k) (_ :: xs) = indexVect k xs
 
 export
-encodingToSet : {a : Encodable} -> ((x : Encodable) -> Ord (f x)) => Encoding f a -> SortedSet (b : Encodable ** f b)
-encodingToSet (BitEncoding x) = fromList @{OrdDPair} [(a ** x)]
-encodingToSet UnitEnc = empty @{OrdDPair}
-encodingToSet (x && y) = union (encodingToSet x) (encodingToSet y)
-encodingToSet [] = empty @{OrdDPair}
-encodingToSet (x :: xs) = union (encodingToSet x) (encodingToSet xs)
+encodingToList : {a : Encodable} -> Encoding (BitType t) a -> List t
+encodingToList {a = Bit} (BitEncoding x) = [x]
+encodingToList UnitEnc = []
+encodingToList (x && y) = encodingToList x ++ encodingToList y
+encodingToList [] = []
+encodingToList (x :: xs) = encodingToList x ++ encodingToList xs
+encodingToList (NewEncoding x) = encodingToList x
+
+export
+encodingToSet : Ord t => {a : Encodable} -> Encoding (BitType t) a -> SortedSet t
+encodingToSet {a = Bit} (BitEncoding x) = fromList [x]
+encodingToSet UnitEnc = empty
+encodingToSet (x && y) = encodingToSet x `union` encodingToSet y
+encodingToSet [] = empty
+encodingToSet (x :: xs) = encodingToSet x `union` encodingToSet xs
 encodingToSet (NewEncoding x) = encodingToSet x
 

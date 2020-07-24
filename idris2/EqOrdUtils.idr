@@ -18,11 +18,8 @@ EqEither : (Eq a, Eq b) => Eq (Either a b)
 EqEither = autoDer
 
 export
-[OrdEither] (Ord a, Ord b) => Ord (Either a b) where
-  compare (Left x)  (Left y)  = compare x y
-  compare (Right x) (Right y) = compare x y
-  compare (Left x)  (Right y) = LT
-  compare (Right x) (Left y)  = GT
+OrdEither : (Ord a, Ord b) => Ord (Either a b)
+OrdEither = autoDer
 
 export
 EqPair : (Eq a, Eq b) => Eq (a, b)
