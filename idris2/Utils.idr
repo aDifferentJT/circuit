@@ -80,7 +80,7 @@ showHashIdent = pack . showHashIdent'
 
     showHashIdent' : Bits64 -> List Char
     showHashIdent' 0 = []
-    showHashIdent' n = if n + 1 == 1 then [] else nybble (prim__and_Bits64 n 0xf) :: showHashIdent' (assert_smaller n $ prim__shr_Bits64 n 4)
+    showHashIdent' n = nybble (prim__and_Bits64 n 0xf) :: showHashIdent' (assert_smaller n $ prim__shr_Bits64 n 4)
 
 
 export
