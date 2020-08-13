@@ -264,12 +264,12 @@ brentKungAdder input = carryLookaheadAdder input brentKungPropagation
 covering
 test : (n : Nat) -> IO ()
 test n =
-  commandLine "Ripple Adder"
+  commandLine "Carry Lookahead Adder"
     {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $
     constructProducing
       {f = \input => IntBits n input -> IntBits n input -> Bit' input -> (IntBits n input, Bit' input)}
       {f' = \input' => autoDer}
-      (rippleAdder {n})
+      (koggeStoneAdder {n})
 
 printAnalytics : (n : Nat) -> IO ()
 printAnalytics n = do
@@ -309,7 +309,7 @@ printAnalytics n = do
 covering
 main : IO ()
 main = do
-  printAnalytics 128
+  printAnalytics 64
   test 4
 
 {-

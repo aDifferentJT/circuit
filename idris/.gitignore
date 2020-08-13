@@ -3,3 +3,4 @@
 *.idr~
 idris_c_encoding.so
 adder
+*.v

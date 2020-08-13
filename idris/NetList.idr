@@ -3,6 +3,7 @@ module NetList
 import Circuit
 import Control.Monad.State
 import Data.Hash
+import Data.SortedSet
 import Data.SortedMap
 import Data.Vect
 import IndexType
@@ -11,40 +12,54 @@ import Utils
 %default total
 
 public export
-NetListOutput : Encodable -> Encodable -> Type
-NetListOutput a b = Encoding (BitType (Either (IndexType a) Bits64)) b
-
-public export
 NetList : Encodable -> Type
 NetList input = SortedMap (String, Bits64)
   (  a : Encodable
   ** b : Encodable
-  ** ( NetListOutput input a
+  ** ( Encoding (BitType Bit) a -> Encoding (BitType Bit) b
+     , Encoding (BitType (Either (IndexType input) Bits64)) a
      , Encoding (BitType Bits64) b
      )
   )
 
 mutual
-  netListFromPrim : {input : Encodable} -> {a : Encodable} -> {b : Encodable} -> Primitive input a b -> State (NetList input) (NetListOutput input b)
-  netListFromPrim {input} {b} prim@(MkPrimitive name h _ x) = do
-    let output = Encoding.map (hash . the (ProducingBit input Bit) . BitProducedFrom prim) IndexTypes
-    when (isNothing $ SortedMap.lookup (name, h) !get) $
-      modify $
-      insert (name, h) (a ** b ** (!(assert_total $ netList' x), output))
-    pure $ map Right output
+  netListFromPrim
+    :  {input : Encodable}
+    -> {a : Encodable}
+    -> {b : Encodable}
+    -> Primitive input a b
+    -> State (SortedSet Bits64, NetList input) ()
+  netListFromPrim {b} prim@(MkPrimitive name h f x) = do
+    let output = map (hash . BitProducedFrom prim) $ IndexTypes {a = b}
+    when (isNothing $ SortedMap.lookup (name, h) $ snd !get) $ do
+      primInput <- netList' {input} x
+      modify $ SortedSet.union (encodingToSet output) *** SortedMap.insert (name, h) (a ** b ** (f, primInput, output))
   
-  netList' : {input : Encodable} -> {a : Encodable} -> Producing input a -> State (NetList input) (NetListOutput input a)
+  netList'
+    :  {input : Encodable}
+    -> {a : Encodable}
+    -> Producing input a
+    -> State (SortedSet Bits64, NetList input) (Encoding (BitType (Either (IndexType input) Bits64)) a)
   netList' {a = Bit} (BitEncoding x) =
-    case x of
-         InputBit i => pure $ BitEncoding $ Left i
-         BitProducedFrom prim i => index i <$> netListFromPrim prim
+    BitEncoding <$> case x of
+                         InputBit i => pure $ Left i
+                         BitProducedFrom prim i => do
+                           assert_total $ netListFromPrim prim
+                           pure $ Right $ hash x
   netList' UnitEnc = pure UnitEnc
-  netList' (x && y) = pure (!(netList' x) && !(netList' y))
+  netList' (x && y) = liftA2 (&&) (netList' x) (netList' y)
   netList' [] = pure []
-  netList' (x :: xs) = pure (!(netList' x) :: !(netList' xs))
+  netList' (x :: xs) = liftA2 (::) (netList' x) (netList' xs)
   netList' (NewEncoding x) = NewEncoding <$> netList' x
 
 export
-netList : {a : Encodable} -> {b : Encodable} -> (a ~> b) -> NetList a
-netList {a} {b} f = snd $ flip runState empty $ netList' $ inputProducing
+netList
+  :  {input : Encodable}
+  -> {output : Encodable}
+  -> Producing input output
+  -> ( Encoding (BitType (Either (IndexType input) Bits64)) output
+     , SortedSet Bits64
+     , NetList input
+     )
+netList x = runState (netList' x) (empty, empty)
 

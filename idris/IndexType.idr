@@ -58,14 +58,21 @@ Ord (PartialIndex a b) where
   compare (HeadIndex _) (TailIndex _) = LT
   compare (TailIndex _) (HeadIndex _) = GT
 
+show' : {a : Encodable} -> PartialIndex a b -> List String
+show' EmptyIndex = []
+show' (LeftIndex  i) = "Left"  :: show' i
+show' (RightIndex i) = "Right" :: show' i
+show' (HeadIndex  i) = "Head"  :: show' i
+show' (TailIndex  i) = "Tail"  :: show' i
+show' {a = NewEnc ident _} (NewEncIndex i) = ident :: show' i
+
 export
 Show (PartialIndex a b) where
-  show EmptyIndex = ""
-  show (LeftIndex   i) = "Left " ++ show i
-  show (RightIndex  i) = "Right " ++ show i
-  show (HeadIndex   i) = "Head " ++ show i
-  show (TailIndex   i) = "Tail " ++ show i
-  show {a = NewEnc ident _} (NewEncIndex i) = ident ++ " " ++ show i
+  show = unwords . show'
+
+export
+showIdent : {a : Encodable} -> PartialIndex a b -> String
+showIdent = concat . intersperse "_" . map (pack . filter (not . isSpace) . unpack) . show'
 
 export
 Hashable (PartialIndex a b) where
@@ -76,6 +83,7 @@ Hashable (PartialIndex a b) where
   saltedHash64 (TailIndex i)   = assert_total $ saltedHash64 (3, i)
   saltedHash64 (NewEncIndex i) = saltedHash64 (4, i)
 
+export
 compose : PartialIndex a b -> PartialIndex b c -> PartialIndex a c
 compose EmptyIndex i = i
 compose (LeftIndex   i1) i2 = LeftIndex   $ compose i1 i2

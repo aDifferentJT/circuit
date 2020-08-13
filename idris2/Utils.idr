@@ -32,7 +32,7 @@ second f (x, y) = (x, f y)
 infixr 3 &&&
 public export
 (&&&) : (a -> b1) -> (a -> b2) -> a -> (b1, b2)
-(&&&) f g (x, y) = (f x, g y)
+(&&&) f g x = (f x, g x)
 
 infixr 3 ***
 public export

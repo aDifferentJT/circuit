@@ -6,7 +6,6 @@ import Data.Hash
 import Data.SortedSet
 import Data.Strings
 import Encodable
-import EqOrdUtils
 import IndexType
 import Utils
 
@@ -147,8 +146,8 @@ export
 encodingToSet : Ord t => {a : Encodable} -> Encoding (BitType t) a -> SortedSet t
 encodingToSet {a = Bit} (BitEncoding x) = fromList [x]
 encodingToSet UnitEnc = empty
-encodingToSet (x && y) = encodingToSet x `union` encodingToSet y
+encodingToSet (x && y) = union (encodingToSet x) (encodingToSet y)
 encodingToSet [] = empty
-encodingToSet (x :: xs) = encodingToSet x `union` encodingToSet xs
+encodingToSet (x :: xs) = union (encodingToSet x) (encodingToSet xs)
 encodingToSet (NewEncoding x) = encodingToSet x
 

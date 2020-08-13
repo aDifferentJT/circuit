@@ -29,10 +29,20 @@ public export
 second : (b -> b') -> (a, b) -> (a, b')
 second f (x, y) = (x, f y)
 
+infixr 3 &&&
+public export
+(&&&) : (a -> b1) -> (a -> b2) -> a -> (b1, b2)
+(&&&) f g x = (f x, g x)
+
 infixl 3 ***
 public export
-(***) : (a -> b) -> (a' -> b') -> (a, a') -> (b, b')
+(***) : (a1 -> b1) -> (a2 -> b2) -> (a1, a2) -> (b1, b2)
 (***) f g (x, y) = (f x, g y)
+
+infixr 3 ****
+public export
+(****) : (a1 -> b1 -> c1) -> (a2 -> b2 -> c2) -> (a1, a2) -> (b1, b2) -> (c1, c2)
+(****) f g (x1, x2) (y1, y2) = (f x1 y1, g x2 y2)
 
 
 mapLeft : (a -> a') -> Either a b -> Either a' b
@@ -60,7 +70,7 @@ zipUnequalVect {n = S n} {f} g xss =
                 zipUnequalVect {n} {f} g $ map (second tail) xss
        )
 
-
+export
 showHashIdent : Bits64 -> String
 showHashIdent = pack . showHashIdent'
   where

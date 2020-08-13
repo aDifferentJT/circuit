@@ -25,7 +25,12 @@ NetList input = SortedMap (String, Bits64)
   )
 
 mutual
-  netListFromPrim : {input : Encodable} -> {a : Encodable} -> {b : Encodable} -> Primitive input a b -> State (SortedSet Bits64, NetList input) ()
+  netListFromPrim
+    :  {input : Encodable}
+    -> {a : Encodable}
+    -> {b : Encodable}
+    -> Primitive input a b
+    -> State (SortedSet Bits64, NetList input) ()
   netListFromPrim prim@(MkPrimitive name h f x) = do
     let output = map (hash . the (ProducingBit input Bit) . BitProducedFrom prim) IndexTypes
     when (isNothing $ SortedMap.lookup (name, h) $ snd !get) $ do
@@ -44,12 +49,10 @@ mutual
                            netListFromPrim prim
                            pure $ Right $ hash x
   netList' UnitEnc = pure UnitEnc
-  netList' (x && y) = pure (!(netList' x) && !(netList' y))
+  netList' (x && y) = liftA2 (&&) (netList' x) (netList' y)
   netList' [] = pure []
-  netList' (x :: xs) = pure (!(netList' x) :: !(netList' xs))
+  netList' (x :: xs) = liftA2 (::) (netList' x) (netList' xs)
   netList' (NewEncoding x) = NewEncoding <$> netList' x
-
-fromRight : Either a b -> Maybe b
 
 export
 netList

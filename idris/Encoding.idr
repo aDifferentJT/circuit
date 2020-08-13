@@ -5,7 +5,6 @@ import Data.Fin
 import Data.Hash
 import Data.SortedSet
 import Encodable
-import EqOrdUtils
 import IndexType
 import Utils
 
@@ -61,6 +60,24 @@ mapEncodings h (x && y) = (mapEncodings (h . LeftIndex) x && mapEncodings (h . R
 mapEncodings h [] = []
 mapEncodings h (x :: xs) = mapEncodings (h . HeadIndex) x :: mapEncodings (h . TailIndex) xs
 mapEncodings h (NewEncoding x) = NewEncoding $ mapEncodings (h . NewEncIndex) x
+
+export
+traverse : Applicative f => {a : Encodable} -> (t1 -> f t2) -> Encoding (BitType t1) a -> f (Encoding (BitType t2) a)
+traverse {a = Bit} f (BitEncoding x) = BitEncoding <$> f x
+traverse f UnitEnc = pure UnitEnc
+traverse f (x && y) = liftA2 (&&) (traverse f x) (traverse f y)
+traverse f [] = pure []
+traverse f (x :: xs) = liftA2 (::) (traverse f x) (traverse f xs)
+traverse f (NewEncoding x) = NewEncoding <$> traverse f x
+
+export
+zipWith : {a : Encodable} -> (t1 -> t2 -> t3) -> Encoding (BitType t1) a -> Encoding (BitType t2) a -> Encoding (BitType t3) a
+zipWith {a = Bit} f (BitEncoding x) (BitEncoding y) = BitEncoding $ f x y
+zipWith f UnitEnc UnitEnc = UnitEnc
+zipWith f (x1 && x2) (y1 && y2) = zipWith f x1 y1 && zipWith f x2 y2
+zipWith f [] [] = []
+zipWith f (x :: xs) (y :: ys) = zipWith f x y :: zipWith f xs ys
+zipWith f (NewEncoding x) (NewEncoding y) = NewEncoding $ zipWith f x y
 
 export
 [HashableEncoding] Hashable t => Hashable (Encoding (BitType t) a) where
@@ -121,11 +138,20 @@ indexVect FZ (x :: _) = x
 indexVect (FS k) (_ :: xs) = indexVect k xs
 
 export
-encodingToSet : {a : Encodable} -> ((x : Encodable) -> Ord (f x)) => Encoding f a -> SortedSet (b : Encodable ** f b)
-encodingToSet {a} (BitEncoding x) = fromList @{OrdDPair} [(a ** x)]
-encodingToSet UnitEnc = empty @{OrdDPair}
+encodingToList : {a : Encodable} -> Encoding (BitType t) a -> List t
+encodingToList {a = Bit} (BitEncoding x) = [x]
+encodingToList UnitEnc = []
+encodingToList (x && y) = encodingToList x ++ encodingToList y
+encodingToList [] = []
+encodingToList (x :: xs) = encodingToList x ++ encodingToList xs
+encodingToList (NewEncoding x) = encodingToList x
+
+export
+encodingToSet : Ord t => {a : Encodable} -> Encoding (BitType t) a -> SortedSet t
+encodingToSet {a = Bit} (BitEncoding x) = fromList [x]
+encodingToSet UnitEnc = empty
 encodingToSet (x && y) = union (encodingToSet x) (encodingToSet y)
-encodingToSet [] = empty @{OrdDPair}
+encodingToSet [] = empty
 encodingToSet (x :: xs) = union (encodingToSet x) (encodingToSet xs)
 encodingToSet (NewEncoding x) = encodingToSet x
 
