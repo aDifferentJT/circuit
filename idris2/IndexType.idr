@@ -20,7 +20,7 @@ data PartialIndex : Encodable -> Encodable -> Type where
   EmptyIndex : PartialIndex a a
   LeftIndex : PartialIndex a b -> PartialIndex (a && _) b
   RightIndex : PartialIndex a b -> PartialIndex (_ && a) b
-  HeadIndex : PartialIndex a b -> PartialIndex (EncVect (S n) a) b
+  HeadIndex : PartialIndex a b -> PartialIndex (EncVect (S _) a) b
   TailIndex : PartialIndex (EncVect n a) b -> PartialIndex (EncVect (S n) a) b
   NewEncIndex : PartialIndex a b -> PartialIndex (NewEnc _ a) b
 
@@ -152,8 +152,8 @@ rightmostIndex {a = Bit} (S _) = trace "Forced Up" (Bit ** EmptyIndex)
 rightmostIndex {a = UnitEnc} (S _) = trace "Forced Up" (UnitEnc ** EmptyIndex)
 rightmostIndex {a = _ && UnitEnc} (S n) = second LeftIndex $ rightmostIndex n
 rightmostIndex {a = _ && _} (S n) = second RightIndex $ rightmostIndex n
-rightmostIndex {a = EncVect 0 a} (S _) = (EncVect Z a ** EmptyIndex)
-rightmostIndex {a = EncVect 1 a} (S n) = second HeadIndex $ rightmostIndex n
+rightmostIndex {a = EncVect Z a} (S _) = (EncVect Z a ** EmptyIndex)
+rightmostIndex {a = EncVect (S Z) a} (S n) = second HeadIndex $ rightmostIndex n
 rightmostIndex {a = EncVect (S m) a} (S n) = second TailIndex $ rightmostIndex {a = assert_smaller (EncVect (S m) a) $ EncVect m a} $ S n
 rightmostIndex {a = NewEnc _ a} (S n) = second NewEncIndex $ rightmostIndex $ S n
 
@@ -232,7 +232,7 @@ moveRight' {a = _ && a2} (LeftIndex i) =
     onFail _        = Right . leftmostIndex
 moveRight' (RightIndex i) =
   either (Left . S) (Right . second RightIndex) $ moveRight' i
-moveRight' {a = EncVect 1 _} (HeadIndex i) =
+moveRight' {a = EncVect (S Z) _} (HeadIndex i) =
   either (Left . S) (Right . second HeadIndex) $ moveRight' i
 moveRight' {a = EncVect (S (S _)) _} (HeadIndex i) =
   either (Right . second TailIndex . leftmostIndex . S) (Right . second HeadIndex) $ moveRight' i
@@ -282,9 +282,10 @@ collateNewEnc (LeftIndex  i) = LeftIndex  <$> collateNewEnc i
 collateNewEnc (RightIndex i) = RightIndex <$> collateNewEnc i
 collateNewEnc (HeadIndex  i) = HeadIndex  <$> collateNewEnc i
 collateNewEnc (TailIndex  i) = TailIndex  <$> collateNewEnc i
-collateNewEnc {a = NewEnc ident' _} (NewEncIndex EmptyIndex) with (decEq ident ident')
-  collateNewEnc {a = NewEnc ident _} (NewEncIndex EmptyIndex) | Yes Refl = Just EmptyIndex
-  collateNewEnc (NewEncIndex EmptyIndex) | No _ = Nothing
+collateNewEnc {a = NewEnc ident' _} (NewEncIndex EmptyIndex) =
+  case decEq ident ident' of
+       Yes Refl => Just EmptyIndex
+       No _ => Nothing
 collateNewEnc (NewEncIndex i) = NewEncIndex <$> collateNewEnc i
 
 public export

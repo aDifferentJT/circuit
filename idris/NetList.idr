@@ -3,8 +3,8 @@ module NetList
 import Circuit
 import Control.Monad.State
 import Data.Hash
-import Data.SortedSet
 import Data.SortedMap
+import Data.SortedSet
 import Data.Vect
 import IndexType
 import Utils

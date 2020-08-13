@@ -144,5 +144,5 @@ wires
   -> {output : Encodable}
   -> (Producing input output)
   -> SortedSet (Wire input output)
-wires x = snd $ snd $ flip runState (empty, empty) $ wires'' OutputTerminus $ collate x
+wires = snd . snd . flip runState (empty, empty) . wires'' OutputTerminus . collate
 

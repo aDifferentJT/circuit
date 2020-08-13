@@ -139,6 +139,6 @@ mutual
         (\i, t => MkWire t $ f i)
         !(wires' x)
 
-wires : {a : Encodable} -> {b : Encodable} -> (a ~> b) -> SortedSet (Wire a b)
-wires {a} {b} f = snd $ snd $ flip runState (empty, empty) $ wires'' {input = a} {a = b} OutputTerminus $ collate $ f a inputProducing
+wires : Producing input output -> SortedSet (Wire input output)
+wires {input} {output} = snd . snd . flip runState (empty, empty) . wires'' {input} {a = output} OutputTerminus . collate
 

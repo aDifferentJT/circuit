@@ -44,10 +44,7 @@ export
 map : (t1 -> t2) -> Encoding (BitType t1) a -> Encoding (BitType t2) a
 map {a = Bit} f (BitEncoding x) = BitEncoding $ f x
 map _ UnitEnc = UnitEnc
-map f (x && y) =
-  (  map f x
-  && map f y
-  )
+map f (x && y) = map f x && map f y
 map f [] = []
 map f (x :: xs) = map f x :: map f xs
 map f (NewEncoding x) = NewEncoding $ map f x

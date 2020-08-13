@@ -274,14 +274,14 @@ collateVect (TailIndex i1) (TailIndex i2) = TailIndex <$> collateVect i1 i2
 collateVect (NewEncIndex i1) (NewEncIndex i2) = NewEncIndex <$> collateVect i1 i2
 
 export
-collateNewEnc : {ident : String} -> {a : Encodable} -> PartialIndex a b -> Maybe (PartialIndex a (NewEnc ident b))
+collateNewEnc : PartialIndex a b -> Maybe (PartialIndex a (NewEnc ident b))
 collateNewEnc EmptyIndex = Nothing
 collateNewEnc (LeftIndex  i) = LeftIndex  <$> collateNewEnc i
 collateNewEnc (RightIndex i) = RightIndex <$> collateNewEnc i
 collateNewEnc (HeadIndex  i) = HeadIndex  <$> collateNewEnc i
 collateNewEnc (TailIndex  i) = TailIndex  <$> collateNewEnc i
 collateNewEnc {ident} {a = NewEnc ident' _} (NewEncIndex EmptyIndex) with (decEq ident ident')
-  collateNewEnc (NewEncIndex EmptyIndex) | Yes Refl = Just EmptyIndex
+  collateNewEnc {ident} {a = NewEnc ident _} (NewEncIndex EmptyIndex) | Yes Refl = Just EmptyIndex
   collateNewEnc (NewEncIndex EmptyIndex) | No _ = Nothing
 collateNewEnc (NewEncIndex i) = NewEncIndex <$> collateNewEnc i
 

@@ -1,5 +1,7 @@
 module Minimiser.Literal
 
+import Utils
+
 %default total
 
 public export
@@ -16,11 +18,6 @@ Eq a => Eq (Literal a) where
   (Neg x) == (Neg y) = x == y
   (Pos x) == (Neg y) = False
   (Neg x) == (Pos y) = False
-
-thenCompare : Ordering -> Lazy Ordering -> Ordering
-thenCompare LT y = LT
-thenCompare EQ y = y
-thenCompare GT y = GT
 
 export
 Ord a => Ord (Literal a) where

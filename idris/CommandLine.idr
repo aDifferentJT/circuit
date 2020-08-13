@@ -52,7 +52,6 @@ parseArgs name x [_, "verilog", fn] = do
   case fileRes of
        Left e => printLn e
        Right () => pure ()
-
 parseArgs name x (_ :: as) = putStrLn $ "Unexpected arguments: " ++ show as
 
 export

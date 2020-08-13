@@ -86,10 +86,7 @@ inputProducing = map InputBit IndexTypes
 mutual
   covering
   runPrimitive'
-    :  {input : Encodable}
-    -> {a : Encodable}
-    -> {b : Encodable}
-    -> Encoding (BitType Bit) input
+    :  Encoding (BitType Bit) input
     -> Primitive input a b
     -> State (SortedMap Bits64 (c : Encodable ** Encoding (BitType Bit) c)) (Encoding (BitType Bit) b)
   runPrimitive' {b} inputs prim@(MkPrimitive _ _ f' x) = do
@@ -99,10 +96,7 @@ mutual
 
   covering
   runPrimitive
-    :  {input : Encodable}
-    -> {a : Encodable}
-    -> {b : Encodable}
-    -> Encoding (BitType Bit) input
+    :  Encoding (BitType Bit) input
     -> Primitive input a b
     -> State (SortedMap Bits64 (c : Encodable ** Encoding (BitType Bit) c)) (Encoding (BitType Bit) b)
   runPrimitive {b} inputs prim =
@@ -114,25 +108,25 @@ mutual
 
   covering
   simulate'
-    :  {input : Encodable}
-    -> {auto inputsEqual : input = input'}
-    -> {a : Encodable}
-    -> Encoding (BitType Bit) input
-    -> Producing input' a
+    :  Encoding (BitType Bit) input
+    -> Producing input a
     -> State (SortedMap Bits64 (c : Encodable ** Encoding (BitType Bit) c)) (Encoding (BitType Bit) a)
-  simulate' {inputsEqual = Refl} {a = Bit} inputs (BitEncoding x) =
+  simulate' {a = Bit} inputs (BitEncoding x) =
     case x of
          InputBit i => pure $ index i inputs
          BitProducedFrom prim i => index i <$> runPrimitive inputs prim
   simulate' _      UnitEnc = pure UnitEnc
-  simulate' {inputsEqual = Refl} inputs (x && y) = pure (!(simulate' inputs x) && !(simulate' inputs y))
+  simulate' inputs (x && y) = pure (!(simulate' inputs x) && !(simulate' inputs y))
   simulate' _      [] = pure []
-  simulate' {inputsEqual = Refl} inputs (x :: xs) = pure (!(simulate' inputs x) :: !(simulate' inputs xs))
-  simulate' {inputsEqual = Refl} inputs (NewEncoding x) = NewEncoding <$> simulate' inputs x
+  simulate' inputs (x :: xs) = pure (!(simulate' inputs x) :: !(simulate' inputs xs))
+  simulate' inputs (NewEncoding x) = NewEncoding <$> simulate' inputs x
 
 covering
 export
-simulate : Producing a b -> Encoding (BitType Bit) a -> Encoding (BitType Bit) b
+simulate
+  :  Producing input a
+  -> Encoding (BitType Bit) input
+  -> Encoding (BitType Bit) a
 simulate x inputs = fst $ flip runState empty $ simulate' inputs x
 
 export
