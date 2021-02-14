@@ -2,34 +2,37 @@
 import Analytics
 import Circuit
 import CommandLine
+import Data.Fin
 import Data.List
+import Data.LVect
 import Data.Nat
 import Data.Stream
 import Data.Vect
 import IndexType
 import NatProofs
+import LinearUtils
 import Utils
 
 %default total
 
-not : (input : Encodable) -> Bit' input -> Bit' input
-not input = primitive "not" bitNot input
+not : (0 input : Encodable) -> Bit' input -> Bit' input
+not input = primitive "not" (relax bitNot) input
 
-fullAdder' : Bit -> Bit -> Bit -> (Bit, Bit)
-fullAdder' B0 B0 B0 = (B0, B0)
-fullAdder' B0 B0 B1 = (B1, B0)
-fullAdder' B0 B1 B0 = (B1, B0)
-fullAdder' B0 B1 B1 = (B0, B1)
-fullAdder' B1 B0 B0 = (B1, B0)
-fullAdder' B1 B0 B1 = (B0, B1)
-fullAdder' B1 B1 B0 = (B0, B1)
-fullAdder' B1 B1 B1 = (B1, B1)
+fullAdder' : Bit -> Bit -> Bit -> LPair Bit Bit
+fullAdder' B0 B0 B0 = B0 # B0
+fullAdder' B0 B0 B1 = B1 # B0
+fullAdder' B0 B1 B0 = B1 # B0
+fullAdder' B0 B1 B1 = B0 # B1
+fullAdder' B1 B0 B0 = B1 # B0
+fullAdder' B1 B0 B1 = B0 # B1
+fullAdder' B1 B1 B0 = B0 # B1
+fullAdder' B1 B1 B1 = B1 # B1
 
-fullAdder : (input : Encodable) -> (Bit' input) -> (Bit' input) -> (Bit' input) -> (Bit' input, Bit' input)
+fullAdder : (0 input : Encodable) -> (Bit' input) -> (Bit' input) -> (Bit' input) -> LPair (Bit' input) (Bit' input)
 fullAdder input = primitive "fullAdder" fullAdder' input
 
 data IntBits : Nat -> Encodable -> Type where
-  MkInt : Vect n (Bit' input) -> IntBits n input
+  MkInt : (1 _ : LVect n (Bit' input)) -> IntBits n input
 
 IntBitsEnc : Nat -> Encodable
 IntBitsEnc n = NewEnc ("Int " ++ show n) $ EncVect n Bit
@@ -40,16 +43,16 @@ IntBitsEnc n = NewEnc ("Int " ++ show n) $ EncVect n Bit
   deconstructEncodingValue (NewEncoding x) = MkInt $ deconstructEncodingValue x
 
 rippleAdder
-  :  (input : Encodable)
+  :  (0 input : Encodable)
   -> IntBits n input
   -> IntBits n input
   -> Bit' input
-  -> (IntBits n input, Bit' input)
-rippleAdder input (MkInt []) (MkInt []) c = (MkInt [], c)
+  -> LPair (IntBits n input) (Bit' input)
+rippleAdder input (MkInt []) (MkInt []) c = (MkInt [] # c)
 rippleAdder input (MkInt (x :: xs)) (MkInt (y :: ys)) c =
-  let (z, c') = fullAdder input x y c in
-      let (MkInt zs, c'') = rippleAdder input (MkInt xs) (MkInt ys) c' in
-          (MkInt (z :: zs), c'')
+  let (z # c') = fullAdder input x y c in
+      let (MkInt zs # c'') = rippleAdder input (MkInt xs) (MkInt ys) c' in
+          (MkInt (z :: zs) # c'')
 
 
 data CarryType
@@ -58,37 +61,36 @@ data CarryType
   | Generate
 
 CarryType' : Encodable -> Type
-CarryType' input = (Bit' input, Bit' input)
+CarryType' input = LPair (Bit' input) (Bit' input)
 
 EncodingValue Bit CarryType where
   builderEncodable = Bit && Bit
   constructEncodingValue Kill = 0 && 0
   constructEncodingValue Propagate = 1 && 0
   constructEncodingValue Generate = 0 && 1
-  deconstructEncodingValue (BitEncoding x && BitEncoding y) =
-    case (x, y) of
-         (B0, B0) => Kill
-         (B1,  _) => Propagate
-         (B0, B1) => Generate
+  deconstructEncodingValue (BitEncoding (MkBitType B0) && BitEncoding (MkBitType B0)) = Kill
+  deconstructEncodingValue (BitEncoding (MkBitType B1) && BitEncoding (MkBitType B0)) = Propagate
+  deconstructEncodingValue (BitEncoding (MkBitType B1) && BitEncoding (MkBitType B1)) = Propagate
+  deconstructEncodingValue (BitEncoding (MkBitType B0) && BitEncoding (MkBitType B1)) = Generate
 
 mergeCarries' : CarryType -> CarryType -> CarryType
 mergeCarries' _ Kill      = Kill
 mergeCarries' c Propagate = c
 mergeCarries' _ Generate  = Generate
 
-mergeCarries : (input : Encodable) -> CarryType' input -> CarryType' input -> CarryType' input
+mergeCarries : (0 input : Encodable) -> CarryType' input -> CarryType' input -> CarryType' input
 mergeCarries input = primitive "mergeCarries" mergeCarries' input
 
-halfAdderLookahead' : Bit -> Bit -> (Bit, CarryType)
-halfAdderLookahead' B0 B0 = (B0, Kill)
-halfAdderLookahead' B0 B1 = (B1, Propagate)
-halfAdderLookahead' B1 B0 = (B1, Propagate)
-halfAdderLookahead' B1 B1 = (B0, Generate)
+halfAdderLookahead' : Bit -> Bit -> LPair Bit CarryType
+halfAdderLookahead' B0 B0 = (B0 # Kill)
+halfAdderLookahead' B0 B1 = (B1 # Propagate)
+halfAdderLookahead' B1 B0 = (B1 # Propagate)
+halfAdderLookahead' B1 B1 = (B0 # Generate)
 
-halfAdderLookahead : (input : Encodable) -> Bit' input -> Bit' input -> (Bit' input, CarryType' input)
+halfAdderLookahead : (0 input : Encodable) -> Bit' input -> Bit' input -> LPair (Bit' input) (CarryType' input)
 halfAdderLookahead input = primitive "halfAdderLookahead" halfAdderLookahead' input
 
-generateCarries : (input : Encodable) -> Vect n (Bit' input) -> Vect n (Bit' input) -> (Vect n (Bit' input), Vect n (CarryType' input))
+generateCarries : (0 input : Encodable) -> LVect n (Bit' input) -> LVect n (Bit' input) -> LPair (LVect n (Bit' input)) (LVect n (CarryType' input))
 generateCarries input xs ys = unzip $ zipWith (halfAdderLookahead input) xs ys
 
 applyCarry' : Bit -> CarryType -> Bit
@@ -96,26 +98,26 @@ applyCarry' _ Kill      = B0
 applyCarry' c Propagate = c
 applyCarry' _ Generate  = B1
 
-applyCarry : (input : Encodable) -> Bit' input -> CarryType' input -> Bit' input
+applyCarry : (0 input : Encodable) -> Bit' input -> CarryType' input -> Bit' input
 applyCarry input = primitive "applyCarry" applyCarry' input
 
-performCarries : (input : Encodable) -> Bit' input -> (Vect n (Bit' input), Vect n (CarryType' input)) -> (Vect n (Bit' input), (Bit' input))
-performCarries input c (xs, cs) =
+performCarries : (0 input : Encodable) -> Bit' input -> LPair (LVect n (Bit' input)) (LVect n (CarryType' input)) -> LPair (LVect n (Bit' input)) (Bit' input)
+performCarries input c (xs # cs) =
   let cs' = c :: map (applyCarry input c) cs in
-  (map fst $ zipWith (halfAdderLookahead input) xs $ init $ cs', last cs')
+      ((map fst $ zipWith (halfAdderLookahead input) xs $ init $ cs') # last cs')
 
 carryLookaheadAdder
   :  {n : Nat}
-  -> (input : Encodable)
-  -> ((CarryType' input -> CarryType' input -> CarryType' input) -> Vect n (CarryType' input) -> Vect n (CarryType' input))
+  -> ({0 a : Type} -> (a -> a -> a) -> Vect n a -> Vect n a)
+  -> (0 input : Encodable)
   -> IntBits n input
   -> IntBits n input
   -> Bit' input
-  -> (IntBits n input, Bit' input)
-carryLookaheadAdder input propagate (MkInt xs) (MkInt ys) c =
-  first MkInt $
+  -> LPair (IntBits n input) (Bit' input)
+carryLookaheadAdder propagate input (MkInt xs) (MkInt ys) c =
+  first (relax MkInt) $
   performCarries input c $
-  second (propagate (mergeCarries input)) $
+  second (vectToLVect . propagate (mergeCarries input) . lVectToVect) $
   generateCarries input xs ys
 
 
@@ -176,7 +178,7 @@ minusFin FZ (S y) = assert_total $ idris_crash "minusFin"
 minusFin (FS x) (S y) = minusFin x y
 
 lteFinToNat : {n : Nat} -> (k : Fin (S n)) -> LTE (finToNat k) n
-lteFinToNat FZ= LTEZero
+lteFinToNat FZ = LTEZero
 lteFinToNat {n = S _} (FS k) = LTESucc $ lteFinToNat k
 
 brentKungPropagation' : {n : Nat} -> (a -> a -> a) -> Vect n a -> Fin n -> a
@@ -198,50 +200,51 @@ brentKungPropagation f xs = map (brentKungPropagation' f xs) range
 
 rippleAdder2
   :  {n : Nat}
-  -> (input : Encodable)
+  -> (0 input : Encodable)
   -> IntBits n input
   -> IntBits n input
   -> Bit' input
-  -> (IntBits n input, Bit' input)
-rippleAdder2 input = carryLookaheadAdder input ripplePropagation
+  -> LPair (IntBits n input) (Bit' input)
+rippleAdder2 = carryLookaheadAdder ripplePropagation
 
 koggeStoneAdder
   :  {n : Nat}
-  -> (input : Encodable)
+  -> (0 input : Encodable)
   -> IntBits n input
   -> IntBits n input
   -> Bit' input
-  -> (IntBits n input, Bit' input)
-koggeStoneAdder input = carryLookaheadAdder input koggeStonePropagation
+  -> LPair (IntBits n input) (Bit' input)
+koggeStoneAdder = carryLookaheadAdder koggeStonePropagation
 
 brentKungAdder
   :  {n : Nat}
-  -> (input : Encodable)
+  -> (0 input : Encodable)
   -> IntBits n input
   -> IntBits n input
   -> Bit' input
-  -> (IntBits n input, Bit' input)
-brentKungAdder input = carryLookaheadAdder input brentKungPropagation
+  -> LPair (IntBits n input) (Bit' input)
+brentKungAdder = carryLookaheadAdder brentKungPropagation
 
 covering
 test : (n : Nat) -> IO ()
 test n = commandLine "Carry Lookahead Adder" {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing $ brentKungAdder {n}
 
-printAnalytics : (n : Nat) -> IO ()
+printAnalytics : Nat -> IO ()
 printAnalytics n = do
   putStr "Ripple Adder:                       "
-  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing $ rippleAdder {n}
+  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing {prim = BinarySimPrim} $ rippleAdder {n}
   putStr "Carry Lookahead overhead:           "
-  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing $ \input => carryLookaheadAdder {n} input (const id)
+  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing {prim = BinarySimPrim} $ carryLookaheadAdder {n} (const id)
   putStr "Carry Lookahead style Ripple Adder: "
-  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing $ rippleAdder2 {n}
+  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing {prim = BinarySimPrim} $ rippleAdder2 {n}
   putStr "Kogge Stone Adder:                  "
-  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing $ koggeStoneAdder {n}
+  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing {prim = BinarySimPrim} $ koggeStoneAdder {n}
   putStr "Brent Kung Adder:                   "
-  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing $ brentKungAdder {n}
+  printLn $ analytics {input = IntBitsEnc n && IntBitsEnc n && Bit && UnitEnc} $ constructProducing {prim = BinarySimPrim} $ brentKungAdder {n}
 
 covering
 main : IO ()
 main = do
+  printAnalytics 10
   test 4
 

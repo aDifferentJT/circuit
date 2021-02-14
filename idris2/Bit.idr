@@ -1,6 +1,6 @@
 module Bit
 
-import Data.Hash
+import LinearUtils
 
 %default total
 
@@ -26,12 +26,20 @@ fromInteger _ {prf} = fromInteger' prf
     fromInteger' ItIs1 = B1
 
 export
-Hashable Bit where
-  hash B0 = hash (the Int 0)
-  hash B1 = hash (the Int 1)
-
-export
-bitNot : Bit -> Bit
+bitNot : (1 _ : Bit) -> Bit
 bitNot B0 = B1
 bitNot B1 = B0
+
+public export
+Discard Bit where
+  discard B0 = ()
+  discard B1 = ()
+
+public export
+Dup Bit where
+  dup B0 = B0 # B0
+  dup B1 = B1 # B1
+
+  release B0 = MkUnrestricted B0
+  release B1 = MkUnrestricted B1
 

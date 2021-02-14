@@ -45,9 +45,14 @@ public export
 (****) f g (x1, x2) (y1, y2) = (f x1 y1, g x2 y2)
 
 
-mapLeft : (a -> a') -> Either a b -> Either a' b
-mapLeft f (Left x)  = Left (f x)
-mapLeft f (Right x) = Right x
+export
+zipWithIndex : (Nat -> a -> b) -> List a -> List b
+zipWithIndex = zipWithIndex' Z
+  where
+    zipWithIndex' : Nat -> (Nat -> a -> b) -> List a -> List b
+    zipWithIndex' _ _ [] = []
+    zipWithIndex' k f (x :: xs) = f k x :: zipWithIndex' (S k) f xs
+
 
 export
 zipVect : {n : Nat} -> (Vect m a -> b) -> Vect m (Vect n a) -> Vect n b
@@ -102,4 +107,8 @@ thenCompare GT y = GT
 export
 liftA2 : Applicative f => (a -> b -> c) -> f a -> f b -> f c
 liftA2 g x y = g <$> x <*> y
+
+export
+unsafeAssumeEq : (0 x : a) -> (0 y : a) -> (x = y)
+unsafeAssumeEq x y = believe_me $ Refl {x}
 

@@ -15,6 +15,8 @@ import Utils
 
 %default total
 
+%ambiguity_depth 10
+
 public export
 data PartialIndex : Encodable -> Encodable -> Type where
   EmptyIndex : PartialIndex a a
@@ -22,7 +24,7 @@ data PartialIndex : Encodable -> Encodable -> Type where
   RightIndex : PartialIndex a b -> PartialIndex (_ && a) b
   HeadIndex : PartialIndex a b -> PartialIndex (EncVect (S _) a) b
   TailIndex : PartialIndex (EncVect n a) b -> PartialIndex (EncVect (S n) a) b
-  NewEncIndex : PartialIndex a b -> PartialIndex (NewEnc _ a) b
+  NewEncIndex : {ident : String} -> PartialIndex a b -> PartialIndex (NewEnc ident a) b
 
 export
 Eq (PartialIndex a b) where
@@ -60,20 +62,20 @@ Ord (PartialIndex a b) where
   compare (HeadIndex _) (TailIndex _) = LT
   compare (TailIndex _) (HeadIndex _) = GT
 
-show' : {a : Encodable} -> PartialIndex a b -> List String
+show' : PartialIndex a b -> List String
 show' EmptyIndex = []
 show' (LeftIndex  i) = "Left"  :: show' i
 show' (RightIndex i) = "Right" :: show' i
 show' (HeadIndex  i) = "Head"  :: show' i
 show' (TailIndex  i) = "Tail"  :: show' i
-show' {a = NewEnc ident _} (NewEncIndex i) = ident :: show' i
+show' (NewEncIndex {ident} i) = ident :: show' i
 
 export
-{a : Encodable} -> Show (PartialIndex a b) where
+Show (PartialIndex a b) where
   show = unwords . show'
 
 export
-showIdent : {a : Encodable} -> PartialIndex a b -> String
+showIdent : PartialIndex a b -> String
 showIdent = concat . intersperse "_" . map (pack . filter (not . isSpace) . unpack) . show'
 
 export
@@ -129,7 +131,7 @@ mutual
     uninhabited (TailIndex i) = absurd $ compose i $ TailIndex EmptyIndex
   
   export
-  Uninhabited (PartialIndex a (NewEnc _ a)) where
+  {ident : String} -> Uninhabited (PartialIndex a (NewEnc ident a)) where
     uninhabited EmptyIndex impossible
     uninhabited (LeftIndex   i) = absurd $ compose i $ NewEncIndex EmptyIndex
     uninhabited (RightIndex  i) = absurd $ compose i $ NewEncIndex EmptyIndex
@@ -247,42 +249,42 @@ moveRight i = either (\_ => (b ** i)) id $ moveRight' i
 
 export
 collatePair : PartialIndex a b -> PartialIndex a c -> Maybe (PartialIndex a (b && c))
-collatePair EmptyIndex _ = Nothing
-collatePair _ EmptyIndex = Nothing
-collatePair (LeftIndex i1) (LeftIndex i2) = LeftIndex <$> collatePair i1 i2
+collatePair EmptyIndex             _                       = Nothing
+collatePair _                      EmptyIndex              = Nothing
+collatePair (LeftIndex i1)         (LeftIndex i2)          = LeftIndex   <$> collatePair i1 i2
 collatePair (LeftIndex EmptyIndex) (RightIndex EmptyIndex) = Just EmptyIndex
-collatePair (LeftIndex _) (RightIndex _) = Nothing
-collatePair (RightIndex _) (LeftIndex _) = Nothing
-collatePair (RightIndex i1) (RightIndex i2) = RightIndex <$> collatePair i1 i2
-collatePair (HeadIndex i1) (HeadIndex i2) = HeadIndex <$> collatePair i1 i2
-collatePair (TailIndex i1) (TailIndex i2) = TailIndex <$> collatePair i1 i2
-collatePair (HeadIndex _) (TailIndex _) = Nothing
-collatePair (TailIndex _) (HeadIndex _) = Nothing
-collatePair (NewEncIndex i1) (NewEncIndex i2) = NewEncIndex <$> collatePair i1 i2
+collatePair (LeftIndex _)          (RightIndex _)          = Nothing
+collatePair (RightIndex _)         (LeftIndex _)           = Nothing
+collatePair (RightIndex i1)        (RightIndex i2)         = RightIndex  <$> collatePair i1 i2
+collatePair (HeadIndex i1)         (HeadIndex i2)          = HeadIndex   <$> collatePair i1 i2
+collatePair (TailIndex i1)         (TailIndex i2)          = TailIndex   <$> collatePair i1 i2
+collatePair (HeadIndex _)          (TailIndex _)           = Nothing
+collatePair (TailIndex _)          (HeadIndex _)           = Nothing
+collatePair (NewEncIndex i1)       (NewEncIndex i2)        = NewEncIndex <$> collatePair i1 i2
 
 export
 collateVect : PartialIndex a b -> PartialIndex a (EncVect n b) -> Maybe (PartialIndex a (EncVect (S n) b))
-collateVect EmptyIndex _ = Nothing
-collateVect _ EmptyIndex = Nothing
-collateVect (LeftIndex i1) (LeftIndex i2) = LeftIndex <$> collateVect i1 i2
-collateVect (LeftIndex _) (RightIndex _) = Nothing
-collateVect (RightIndex _) (LeftIndex _) = Nothing
-collateVect (RightIndex i1) (RightIndex i2) = RightIndex <$> collateVect i1 i2
-collateVect (HeadIndex i1) (HeadIndex i2) = HeadIndex <$> collateVect i1 i2
+collateVect EmptyIndex             _                      = Nothing
+collateVect _                      EmptyIndex             = Nothing
+collateVect (LeftIndex i1)         (LeftIndex i2)         = LeftIndex   <$> collateVect i1 i2
+collateVect (LeftIndex _)          (RightIndex _)         = Nothing
+collateVect (RightIndex _)         (LeftIndex _)          = Nothing
+collateVect (RightIndex i1)        (RightIndex i2)        = RightIndex  <$> collateVect i1 i2
+collateVect (HeadIndex i1)         (HeadIndex i2)         = HeadIndex   <$> collateVect i1 i2
 collateVect (HeadIndex EmptyIndex) (TailIndex EmptyIndex) = Just EmptyIndex
-collateVect (HeadIndex _) (TailIndex _) = Nothing
-collateVect (TailIndex _) (HeadIndex _) = Nothing
-collateVect (TailIndex i1) (TailIndex i2) = TailIndex <$> collateVect i1 i2
-collateVect (NewEncIndex i1) (NewEncIndex i2) = NewEncIndex <$> collateVect i1 i2
+collateVect (HeadIndex _)          (TailIndex _)          = Nothing
+collateVect (TailIndex _)          (HeadIndex _)          = Nothing
+collateVect (TailIndex i1)         (TailIndex i2)         = TailIndex   <$> collateVect i1 i2
+collateVect (NewEncIndex i1)       (NewEncIndex i2)       = NewEncIndex <$> collateVect i1 i2
 
 export
-collateNewEnc : {ident : String} -> {a : Encodable} -> PartialIndex a b -> Maybe (PartialIndex a (NewEnc ident b))
-collateNewEnc EmptyIndex = Nothing
+collateNewEnc : {ident : String} -> PartialIndex a b -> Maybe (PartialIndex a (NewEnc ident b))
+collateNewEnc EmptyIndex     = Nothing
 collateNewEnc (LeftIndex  i) = LeftIndex  <$> collateNewEnc i
 collateNewEnc (RightIndex i) = RightIndex <$> collateNewEnc i
 collateNewEnc (HeadIndex  i) = HeadIndex  <$> collateNewEnc i
 collateNewEnc (TailIndex  i) = TailIndex  <$> collateNewEnc i
-collateNewEnc {a = NewEnc ident' _} (NewEncIndex EmptyIndex) =
+collateNewEnc (NewEncIndex {ident = ident'} EmptyIndex) =
   case decEq ident ident' of
        Yes Refl => Just EmptyIndex
        No _ => Nothing

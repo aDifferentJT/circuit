@@ -1,6 +1,7 @@
 module TUI
 
 import Circuit
+import Data.DPair
 import Data.DPair.Extra
 import Data.HVect
 import Data.List
@@ -8,12 +9,15 @@ import Data.Nat
 import Data.Strings
 import Data.Vect
 import IndexType
+import LinearUtils
 import LineDrawing
 import NatProofs
 import Utils
 import VectProofs
 
 %default total
+
+%ambiguity_depth 10
 
 half : (n : Nat) -> (m1 : Nat ** m2 : Nat ** m1 + m2 = n)
 half Z =
@@ -72,38 +76,39 @@ bracket (Just (FS highlight)) (n :: ns) =
   ++ mapHead bracketWidthNotZ (record {lineW = Thin}) (bracket (Just highlight) ns)
 
 tupleToList
-  :  (a : Encodable)
-  -> Maybe (b : Encodable ** PartialIndex a b)
+  :  (0 a : Encodable)
+  -> Maybe (Exists (PartialIndex a))
   -> Encoding (BitType t) a
   -> (  n : Nat
-     ** as : Vect n Encodable
-     ** ( Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k as) b)
+     ** Exists {type = Vect n Encodable} (\as =>
+        ( Maybe (k : Fin n ** Exists (PartialIndex (index k as)))
         , HVect (map (Encoding $ BitType t) as)
         )
+        )
      )
-tupleToList (a && UnitEnc) Nothing (x && UnitEnc) = (1 ** [a] ** (Nothing, [x]))
-tupleToList (a && UnitEnc) (Just (b ** LeftIndex i)) (x && UnitEnc) = (1 ** [a] ** (Just (0 ** b ** i), [x]))
+tupleToList (a && UnitEnc) Nothing (x && UnitEnc) = (1 ** Evidence [a] (Nothing, [x]))
+tupleToList (a && UnitEnc) (Just (Evidence b (LeftIndex i))) (x && UnitEnc) = (1 ** Evidence [a] (Just (0 ** Evidence b i), [x]))
 tupleToList (a1 && a2) Nothing (x1 && x2) =
-  let (n ** as ** (_, xs)) = tupleToList a2 Nothing x2 in
-      (S n ** a1 :: as ** (Nothing, x1 :: xs))
-tupleToList (a1 && a2) (Just (b ** i)) (x1 && x2) =
+  let (n ** Evidence as (_, xs)) = tupleToList a2 Nothing x2 in
+      (S n ** Evidence (a1 :: as) (Nothing, x1 :: xs))
+tupleToList (a1 && a2) (Just (Evidence b i)) (x1 && x2) =
   case i of
-       EmptyIndex => let (n ** as ** (_, xs)) = tupleToList a2 Nothing x2 in
-                         (S n ** a1 :: as ** (Nothing, x1 :: xs))
-       LeftIndex i' => let (n ** as ** (_, xs)) = tupleToList a2 Nothing x2 in
-                           (S n ** a1 :: as ** (Just (0 ** b ** i'), x1 :: xs))
-       RightIndex i' => case tupleToList a2 (Just (b ** i')) x2 of
-                             (n ** as ** (Nothing, xs)) => (S n ** a1 :: as ** (Nothing, x1 :: xs))
-                             (n ** as ** (Just (k ** b' ** i''), xs)) => (S n ** a1 :: as ** (Just (FS k ** b' ** i''), x1 :: xs))
-tupleToList a Nothing x = (1 ** [a] ** (Nothing, [x]))
-tupleToList a (Just (b ** i)) x = (1 ** [a] ** (Just (0 ** b ** i), [x]))
+       EmptyIndex => let (n ** Evidence as (_, xs)) = tupleToList a2 Nothing x2 in
+                         (S n ** Evidence (a1 :: as) (Nothing, x1 :: xs))
+       LeftIndex i' => let (n ** Evidence as (_, xs)) = tupleToList a2 Nothing x2 in
+                           (S n ** Evidence (a1 :: as) (Just (0 ** Evidence b i'), x1 :: xs))
+       RightIndex i' => case tupleToList a2 (Just (Evidence b i')) x2 of
+                             (n ** Evidence as (Nothing, xs)) => (S n ** Evidence (a1 :: as) (Nothing, x1 :: xs))
+                             (n ** Evidence as (Just (k ** Evidence b' i''), xs)) => (S n ** Evidence (a1 :: as) (Just (FS k ** Evidence b' i''), x1 :: xs))
+tupleToList a Nothing x = (1 ** Evidence [a] (Nothing, [x]))
+tupleToList a (Just (Evidence b i)) x = (1 ** Evidence [a] (Just (0 ** Evidence b i), [x]))
 
 extractVect
-  :  (a : Encodable)
-  -> Maybe (b : Encodable ** PartialIndex (EncVect n a) b)
+  :  (0 a : Encodable)
+  -> Maybe (Exists (PartialIndex (EncVect n a)))
   -> Encoding (BitType t) (EncVect n a)
   -> (  n : Nat
-     ** ( Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k $ replicate a) b)
+     ** ( Maybe (k : Fin n ** Exists (PartialIndex (index k $ replicate a)))
         , HVect (map (Encoding $ BitType t) $ replicate n a)
         )
      )
@@ -111,26 +116,26 @@ extractVect a _ [] = (Z ** (Nothing, []))
 extractVect a Nothing (x :: xs) =
   let (n ** (_, xs')) = extractVect a Nothing xs in
       (S n ** (Nothing, x :: xs'))
-extractVect a (Just (b ** i)) (x :: xs) =
+extractVect a (Just (Evidence b i)) (x :: xs) =
   case i of
        EmptyIndex => let (n ** (_, xs')) = extractVect a Nothing xs in
                          (S n ** (Nothing, x :: xs'))
        HeadIndex i' => let (n ** (_, xs')) = extractVect a Nothing xs in
-                           (S n ** (Just (FZ ** b ** i'), x :: xs'))
-       TailIndex i' => case extractVect a (Just (b ** i')) xs of
+                           (S n ** (Just (FZ ** Evidence b i'), x :: xs'))
+       TailIndex i' => case extractVect a (Just (Evidence b i')) xs of
                              (n ** (Nothing, xs')) => (S n ** (Nothing, x :: xs'))
-                             (n ** (Just (k ** b' ** i''), xs')) => (S n ** (Just (FS k ** b' ** i''), x :: xs'))
+                             (n ** (Just (k ** Evidence b' i''), xs')) => (S n ** (Just (FS k ** Evidence b' i''), x :: xs'))
 
 makeNewEncIndex
-  :  Maybe (b : Encodable ** PartialIndex (NewEnc ident a) b)
-  -> Maybe (b : Encodable ** PartialIndex a b)
+  :  Maybe (Exists (PartialIndex (NewEnc ident a)))
+  -> Maybe (Exists (PartialIndex a))
 makeNewEncIndex Nothing = Nothing
-makeNewEncIndex (Just (_ ** EmptyIndex)) = Nothing
-makeNewEncIndex (Just (b ** NewEncIndex i)) = Just (b ** i)
+makeNewEncIndex (Just (Evidence _ EmptyIndex)) = Nothing
+makeNewEncIndex (Just (Evidence b (NewEncIndex i))) = Just (Evidence b i)
 
-extractVectIndex : Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k as) b) -> Maybe (Fin n)
+extractVectIndex : Maybe (k : Fin n ** Exists (PartialIndex (index k as))) -> Maybe (Fin n)
 extractVectIndex Nothing = Nothing
-extractVectIndex (Just (k ** _ ** i)) =
+extractVectIndex (Just (k ** Evidence _ i)) =
   case i of
        EmptyIndex => Just k
        _ => Nothing
@@ -150,23 +155,24 @@ vectVPadded = map (\((height' ** width' ** lines) ** smaller) => (width' ** rPad
 mutual
   vectPrettys
     :  Show t
-    => (as : Vect n Encodable)
-    -> Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k as) b)
+    => {n : Nat}
+    -> (0 as : Vect n Encodable)
+    -> Maybe (k : Fin n ** Exists (PartialIndex (index k as)))
     -> HVect (map (Encoding $ BitType t) as)
     -> VectPrettys n
   vectPrettys {t} as Nothing xs = hVectToVect {xs = as} (pretty' {t} Nothing) xs
-  vectPrettys {t} as (Just (k ** b ** i)) xs =
+  vectPrettys {t} as (Just (k ** Evidence b i)) xs =
     hVectToVect {xs = as} (uncurry $ pretty' {t}) $
     rewrite__impl HVect (sym $ zipMaps as) $
     zip
-      (hVectOneElement (\a => (b : Encodable ** PartialIndex a b)) (b ** i))
+      (hVectOneElement (\a => Exists (PartialIndex a)) (Evidence b i))
       xs
     
   prettyVect
     :  Show t
     => (n : Nat)
-    -> (as : Vect n Encodable)
-    -> Maybe (k : Fin n ** b : Encodable ** PartialIndex (index k as) b)
+    -> (0 as : Vect n Encodable)
+    -> Maybe (k : Fin n ** Exists (PartialIndex (index k as)))
     -> HVect (map (Encoding $ BitType t) as)
     -> (height : Nat ** width : Nat ** Vect height (Vect width (Either LineDir Char)))
   prettyVect {t} n as i xs =
@@ -181,17 +187,18 @@ mutual
 
   pretty'
     :  Show t
-    => {a : Encodable}
-    -> Maybe (b : Encodable ** PartialIndex a b)
+    => Maybe (Exists (PartialIndex a))
     -> Encoding (BitType t) a
     -> (height : Nat ** width : Nat ** Vect height (Vect width (Either LineDir Char)))
-  pretty' {a = Bit} _ (BitEncoding x) =
+  pretty' {a = Bit} _ (BitEncoding (MkBitType x)) =
     (1 ** second ((::[]) . map Right) $ listToVect $ unpack $ show $ x)
   pretty' _ UnitEnc = (1 ** 2 ** [[Right '(', Right ')']])
-  pretty' {a = a1 && a2} i x =
-    let (n ** as ** (i', xs)) = tupleToList (a1 && a2) i x in
+  pretty' {a = a1 && a2} i x@(_ && _) =
+    let (n ** Evidence as (i', xs)) = tupleToList (a1 && a2) i x in
         assert_total $ prettyVect {t} n as i' xs
-  pretty' {a = EncVect n a} i x =
+  pretty' {a = EncVect _ a} i x@[] =
+    assert_total $ prettyVect {t} Z (replicate a) Nothing []
+  pretty' {a = EncVect _ a} i x@(_ :: _) =
     let (n ** (i', xs)) = extractVect a i x in
         assert_total $ prettyVect {t} n (replicate a) i' xs
   pretty' {a = NewEnc ident _} i (NewEncoding x) =
@@ -203,12 +210,12 @@ mutual
             :: map (cPad {smaller=ySmallerThanMaxNatXY width1 width2} $ Left space) lines
             )
 
-pretty : Show t => {a : Encodable} -> Maybe (b : Encodable ** PartialIndex a b) -> Encoding (BitType t) a -> String
+pretty : Show t => Maybe (Exists (PartialIndex a)) -> Encoding (BitType t) a -> String
 pretty i x =
   let (height ** width ** ls) = pretty' i x in
       unlines $ toList $ map (pack . toList . map (either lineDrawingChar id)) $ ls
 
-prettyInvert : Show t => {a : Encodable} -> Maybe (b : Encodable ** PartialIndex a b) -> Encoding (BitType t) a -> String
+prettyInvert : Show t => Maybe (Exists (PartialIndex a)) -> Encoding (BitType t) a -> String
 prettyInvert i x =
   let (_ ** _ ** lines) = pretty' i x in
       unlines $ toList $ map (pack . toList . map (either (lineDrawingChar . flipV) id)) $ reverse $ lines
@@ -217,28 +224,26 @@ mutual
   covering export
   tuiSimulate
     :  {input : Encodable}
-    -> {a : Encodable}
-    -> Producing input a
+    -> Producing BinarySimPrim input a
     -> Encoding (BitType Bit) input
     -> {b : Encodable}
     -> PartialIndex input b
     -> IO ()
   tuiSimulate x inputs i = do
-    putStr $ prettyInvert {t = Bit} Nothing $ simulate x inputs
-    putStr $ pretty {t = Bit} (Just (b ** i)) inputs
+    putStr $ prettyInvert {t = Bit} Nothing (simulate x inputs)
+    putStr $ pretty {t = Bit} (Just (Evidence b i)) inputs
     getLine >>= executeUserInput x inputs i
   
   covering
   executeUserInput
     :  {input : Encodable}
-    -> {a : Encodable}
-    -> Producing input a
+    -> Producing BinarySimPrim input a
     -> Encoding (BitType Bit) input
     -> {b : Encodable}
     -> PartialIndex input b
     -> String
     -> IO ()
-  executeUserInput {b = Bit} x inputs i " " = tuiSimulate x (mapBitAt bitNot i inputs) i
+  executeUserInput {b = Bit} x inputs i " " = tuiSimulate x (mapBitAt (relax bitNot) i inputs) i
   executeUserInput x inputs i "u" = tuiSimulate x inputs $ snd $ moveUp i
   executeUserInput x inputs i "d" = tuiSimulate x inputs $ snd $ moveDown i
   executeUserInput x inputs i "l" = tuiSimulate x inputs $ snd $ moveLeft i

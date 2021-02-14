@@ -6,6 +6,7 @@ import Control.Monad.Random
 import Data.List
 import Encoding
 import IndexType
+import LinearUtils
 import Minimiser.Boom
 import public Minimiser.Literal
 import Utils
@@ -17,18 +18,18 @@ combine f [] ys = []
 combine f (x :: xs) ys = map (f x) ys ++ combine f xs ys
 
 allInputs : (a : Encodable) -> List (Encoding (BitType Bit) a, List (Literal (IndexType a)))
-allInputs Bit = [(BitEncoding B0, [Neg EmptyIndex]), (BitEncoding B1, [Pos EmptyIndex])]
+allInputs Bit = [(BitEncoding $ MkBitType B0, [Neg EmptyIndex]), (BitEncoding $ MkBitType B1, [Pos EmptyIndex])]
 allInputs UnitEnc = [(UnitEnc, [])]
 allInputs (a && b) =
-  combine ((&&) **** (++))
+  combine ((relax2 $ relax (&&)) **** (++))
     (map (second $ map $ map LeftIndex) $ allInputs a)
     (map (second $ map $ map RightIndex) $ allInputs b)
 allInputs (EncVect Z a) = [([], [])]
 allInputs (EncVect (S k) a) =
-  combine ((::) **** (++))
+  combine ((relax2 $ relax (::)) **** (++))
     (map (second $ map $ map HeadIndex) $ allInputs a)
     (map (second $ map $ map TailIndex) $ allInputs $ assert_smaller (EncVect (S k) a) $ EncVect k a)
-allInputs (NewEnc _ a) = map (NewEncoding *** (map $ map NewEncIndex)) $ allInputs a
+allInputs (NewEnc _ a) = map (relax NewEncoding *** (map $ map NewEncIndex)) $ allInputs a
 
 analysePrimitive
   :  {a : Encodable}
@@ -38,7 +39,7 @@ analysePrimitive
 analysePrimitive f =
   foldl
     (\onOffSets, (bits, term) => zipWith (uncurry $ addTerm term) onOffSets $ f bits)
-    (replicate ([], []))
+    (replicate $ MkBitType ([], []))
     (allInputs a)
   where
     addTerm
@@ -58,5 +59,5 @@ minimisePrimitive
   -> {b : Encodable}
   -> (Encoding (BitType Bit) a -> Encoding (BitType Bit) b)
   -> ExceptT String RandomM (Encoding (BitType (List (List (Literal (IndexType a))))) b)
-minimisePrimitive = traverse (uncurry boom) . analysePrimitive
+minimisePrimitive f = traverse (uncurry boom) $ analysePrimitive f
 

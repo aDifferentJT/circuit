@@ -2,7 +2,7 @@ module Control.Monad.Random
 
 import Control.Monad.MaybeT
 import Data.List
-import System.Random
+import public System.Random
 
 %default total
 
